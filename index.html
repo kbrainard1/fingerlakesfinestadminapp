@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Finger Lakes Finest Thoroughbreds Inc is a 501(c)(3) non-profit that works with trainers at the Finger Lakes Race Track in Western New York to find new non-racing homes for their thoroughbreds. Off track thoroughbreds (OTTBs) can have new careers in hunter/jumpers, eventing, dressage, polo, trail, and pleasure riding.">
+  <title>Finger Lakes Finest Thoroughbreds, Inc</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "New York",
+        "addressCountry": "US"
+      },
+      "alternateName": "Finger Lakes Finest", 
+      "areaServed" : [{
+        "@type": "State",
+        "name" : "New York"
+      }],
+      "description": "Finger Lakes Finest Thoroughbreds Inc is a 501(c)(3) non-profit that works with trainers at the Finger Lakes Race Track in Western New York to find new non-racing homes for their thoroughbreds. Off track thoroughbreds (OTTBs) can have new careers in hunter/jumpers, eventing, dressage, polo, trail, and pleasure riding.",
+      "image": "images/logo.png",
+      "keywords": "thoroughbred, OTTB, horse, finger lakes",
+      "logo": "images/logo.png",
+      "name": "Finger Lakes Finest Thoroughbreds Inc",
+      "url": "http://fingerlakesfinesttbs.com/"
+    }
+  </script>
+</head>
+
+<body onload="drawGallery()">
+  <header>
+    <div class="logo_box">
+      <img src="images/logo.jpg" alt="Finger Lakes Finest Thoroughbreds Inc" class="logo">
+    </div>
+    <div class="nav_box">
+      <nav class="nav_normal">
+        <a class="active" href="index.html">Home</a>
+        <a href="howtobuy.html">How to Buy</a>
+        <a href="available.html">Available Horses</a>
+        <a href="placed.html">Placed Horses</a>
+        <a href="resources.html">Resources</a>
+        <a href="donate.html">Donate</a>
+        <a href="contact.html">Contact Us</a>
+      </nav>
+    </div>
+    <div class="nav_box_mobile">
+      <input id="toggle" type="checkbox">
+
+      <label for="toggle" class="hamburger">
+        <div class="htop"></div>
+        <div class="hmid"></div>
+        <div class="hbottom"></div>
+      </label>
+
+      <div class="ham_nav">
+        <nav class="nav_mobile">
+          <div class="nav_mobile_inner">
+            <a href="index.html">Home</a>
+            <a href="howtobuy.html">How to Buy</a>
+            <a href="available.html">Available Horses</a>
+            <a href="placed.html">Placed Horses</a>
+            <a href="resources.html">Resources</a>
+            <a href="donate.html">Donate</a>
+            <a href="contact.html">Contact Us</a>
+          </div>
+        </nav>
+      </div>
+
+      <div class="available_mobile">
+        <h3><a class="mobile_home_gallery_title" href="available.html">Available Horses</a></h3>
+        <div id="full_available_list">
+
+          <img src="horsePages/swaythejury_files/side.jpg" href="horsePages/swaythejury.html" horse_title="SWAY THE JURY 2022, 15.3h, dark bay gelding">
+          <img src="horsePages/threecaptains_files/side.jpg" href="horsePages/threecaptains.html" horse_title="THREE CAPTAINS, 2020, 16.2 h., dark bay
+                gelding">
+          <img src="horsePages/swiftbank_files/side.jpg" href="horsePages/swiftbank.html" horse_title="SWIFT BANK, 2022, 16.2h, dark bay gelding ">
+          <img src="horsePages/addysonsdream_files/Addysons-Deam-left-300x224_vA5T.jpg" href="horsePages/addysonsdream.html" horse_title="ADDYSON'S DREAM, 2021, 16.3h, bay gelding">
+        </div>
+      </div>
+      <div class="large_image_wrapper mobile_large_image_wrapper">
+        <span class="prev_image" onclick="prevImage()">
+          &lt;
+        </span>
+        <a id="avail_gallery_outer">
+          <img id="mobile_home_gallery_display" src="">
+          <p id="mobile_home_gallery_text"></p>
+        </a>
+        <span class="next_image" onclick="nextImage()">
+          &gt;
+        </span>
+      </div>
+      <div id="gallery_dot_progress">
+      </div>
+
+    </div>
+    <hr>
+  </header>
+  <main class="home_main">
+    <div class="home_content">
+      <h1>Welcome</h1>
+      <h3 class="home_header">The Finger Lakes Trainer Listing Service</h3>
+      <p>
+        Discover the talent, heart, and aptitude of off the track Thoroughbreds (OTTBs) for new careers in
+        hunter/jumpers,
+        eventing, dressage, polo, trail and pleasure riding.
+      </p>
+      <p>
+        Each year, there are many wonderful horses at Finger Lakes Race Track in Western New York who are ready to end
+        their racing careers and find good new non-racing homes. Finger Lakes Finest Thoroughbreds, Inc. is a 501(c)(3)
+        charitable tax exempt not-for-profit corporation that works with trainers at the track and with people
+        interested
+        in acquiring an OTTB to help the retiring race horses find ideal new homes.
+      </p>
+      <section data-nosnippet>
+
+        <p>
+          Our services include:
+        </p>
+        <ul>
+          <li>A trainer listing service on our website with photos, videos, and descriptive information about horses
+            available to be purchased</li>
+          <li>Escorting people interested in acquiring horses for non-racing new careers around the track stable area to
+            see and evaluate available horses</li>
+          <li>Providing information and advice to potential buyers about the process of acquiring, vetting, shipping,
+            and
+            transitioning the horses to new careers</li>
+          <li>Promoting the successes of Finger Lakes Finest Thoroughbreds in their new homes, to help encourage others
+            to
+            bring one of these horses into their life</li>
+          <li>Networking and working with other not-for profit OTTB rehoming groups for horses in urgent need of new
+            homes, including taking in some horses as FLF retraining/rehoming projects, and then finding them approved
+            adoptive homes</li>
+        </ul>
+
+        <p>
+          We also try to promote other non-profit efforts to re-home Finger Lakes “Finests” in addition to those horses
+          that are listed with us. Links to other OTTB groups can be found on our <a href="resources.html">Resources</a>
+          page. One of these
+          resources
+          is the Finger Lakes Thoroughbred Adoption Program (FLTAP), an adoption barn run by the track and located on
+          the
+          track grounds. We are separate from FLTAP, but cooperate with them to advance our complimentary missions.
+          Please
+          do not call them about horses on our Listings, but please do look at the wonderful Finger Lakes horses they
+          offer for adoption to approved homes: <a href="http://www.fingerlakestap.org/">FLTAP</a>
+        </p>
+        <p>
+          Interested in volunteering? Please contact us at <a href="mailto:fingerlakesfinest@gmail.com">fingerlakesfinest@gmail.com</a>.
+        </p>
+        <p>
+          Our banner photograph features FL Finest Jackie’s Punt, now known as “Bailey,” who has surely captured the
+          heart
+          of his new owner. Photograph by <a href="http://www.robinfoxphotography.com/">Robin Fox Photography: </a>
+        </p>
+      </section>
+    </div>
+    <div class="recent_adds">
+      <h3>Recent Additions</h3>
+<ul>
+
+        <li><a class="available_title" href="horsePages/swaythejury.html">SWAY THE JURY 2022, 15.3 h., dark bay
+            gelding</a></li>
+        <li><a class="available_title" href="horsePages/threecaptains.html">THREE CAPTAINS, 2020, 16.2 h., dark bay
+            gelding</a></li>
+        <li><a class="available_title" href="horsePages/swiftbank.html">SWIFT BANK, 2022, 16.2h, dark bay gelding
+          </a></li>
+        <li><a class="available_title" href="horsePages/addysonsdream.html">ADDYSON'S DREAM, 2021, 16.3h, bay
+            gelding</a></li>
+      </ul>
+    </div>
+  </main>
+  <footer>
+    <hr>
+    <div class="footer_logo">
+      <img src="images/fb_logo.jpg" alt="Finger Lakes Finest Logo" class="footer_logo">
+    </div>
+    <p class="footer_text"><a href="mailto:fingerlakesfinest@gmail.com">fingerlakesfinest@gmail.com</a></p>
+    <a href="https://www.facebook.com/fingerlakesfinesttbs">
+      <img src="images/facebook.gif">
+    </a>
+  </footer>
+  <script src="mobile_home_gallery.js"></script>
+</body>
+</html>
