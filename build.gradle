@@ -1,0 +1,33 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+eclipse.project.name = 'ManageFLF' 
+
+sourceSets {
+	main {
+	  java {
+		srcDirs = ['src']
+	  }
+	}
+	test {
+	  java {
+	     srcDirs = ['test']
+	  }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+
+dependencies {
+    implementation "org.seleniumhq.selenium:selenium-java:4.20.0"
+       implementation "org.jsoup:jsoup:1.17.2"
+       implementation("org.kohsuke:github-api:1.330")
+}
+
+
+test {
+    useJUnitPlatform()
+}
