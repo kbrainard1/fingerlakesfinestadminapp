@@ -7,12 +7,7 @@ import java.util.List;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 
 public class CreateListing {
 
@@ -31,17 +26,10 @@ public class CreateListing {
             }
         }
         String shortName = shortNameBuilder;
-
-        Document page = Jsoup.parse(MarkPlaced.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
-        page.getElementsByTag("head").getFirst().append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
-        
-        Element firstMainChild = page.getElementById("image_gallery_full");
-        firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + thumbName + "\">");
-        firstMainChild.before("    <h1>" + title + "</h1>");
-        
-        List<String> videos = new ArrayList<>();
         String pedigreeLink = "";
-
+       
+        List<String> videoLinks = new ArrayList<>();
+        List<String> bio = new ArrayList<>();
         for (int i = 1; i < data.size(); i++) {
             String filterLine = data.get(i).toLowerCase().trim();
             if (filterLine.contains("equibase.com")) {
@@ -54,15 +42,42 @@ public class CreateListing {
             // youtube.com or youtu.be
             if (filterLine.contains("youtu")) {
                 // youtube ids are case sensitive
-                videos.add(data.get(i).substring(data.get(i).lastIndexOf(" ")).trim());
+                videoLinks.add(data.get(i).substring(data.get(i).lastIndexOf(" ")).trim());
                 continue;
             }
-            firstMainChild.before("<p>" + data.get(i) + "</p>");
+            bio.add(data.get(i));
+        }
+        createListingPage(name, title, thumbName, imagePaths, getEquibaseLink(shortName), pedigreeLink, videoLinks, bio);
+    }
+    
+    public static void createListingPage(String name, String title, String thumbName,
+            List<String> imagePaths, String raceRecordLink, String pedigreeLink, List<String> videoLinks,
+            List<String> bio) throws Exception {
+        String shortNameBuilder = "";
+        for (int i = 0; i < name.length(); i++) {
+            if (Character.isLetter(name.charAt(i))) {
+                shortNameBuilder += Character.toLowerCase(name.charAt(i));
+            }
+        }
+        String shortName = shortNameBuilder;
+
+        Document page = Jsoup.parse(MarkPlaced.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
+        page.getElementsByTag("head").getFirst().append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
+        
+        Element firstMainChild = page.getElementById("image_gallery_full");
+        firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + thumbName + "\">");
+        firstMainChild.before("    <h1>" + title + "</h1>");
+        
+        List<String> videos = new ArrayList<>();
+
+        for (String bioPara : bio) {
+            firstMainChild.before("<p>" + bioPara + "</p>");
         }
 
-        firstMainChild.before("<p><a href=\"" + getEquibaseLink(shortName) + "\" target=\"_blank\" rel=\"noreferrer noopener\">Race Record</a></p>");
+        firstMainChild.before("<p><a href=\"" + raceRecordLink + "\" target=\"_blank\" rel=\"noreferrer noopener\">Race Record</a></p>");
         firstMainChild.before("<p><a rel=\"noreferrer noopener\" href=\"" + pedigreeLink + "\" target=\"_blank\">Pedigree</a></p>");
         
+        GithubConnector.commitNew("horsePages/" + shortName + "_files/" + thumbName, thumbName);
         writeImages(page, shortName, imagePaths);
         
         writeVideos(page, videos);
@@ -78,7 +93,7 @@ public class CreateListing {
            return;
        }
 
-        String snippet = buildSnippet(data);
+        String snippet = buildSnippet(bio);
 
         updateMetadata(title,  "horsePages/" + shortName + "_files/" + thumbName, 
                 "horsePages/" + shortName + ".html", snippet);
@@ -91,13 +106,14 @@ public class CreateListing {
         Element imageGallery = page.getElementById("image_gallery_full");
         for (String fullPath : imageFullPaths) {
             String image = fullPath.substring(fullPath.lastIndexOf(File.separator) + 1);
+            GithubConnector.commitNew("horsePages/" + shortName + "_files/" + image, fullPath);
             imageGallery.append( "<img src=\"" + shortName + "_files/" + image + "\" full_size=\"" + shortName + "_files/" + image + "\">");
         }
     }
 
     private static String buildSnippet(List<String> data) {
         String snippet = "";
-        int dataIndex = 1;
+        int dataIndex = 0;
         int snippetLen = 400;
         boolean trimmed = false;
         while (snippet.length() < snippetLen && !trimmed) {
@@ -119,15 +135,13 @@ public class CreateListing {
     private static void writeVideos(Document page, List<String> videos) throws Exception {
         Element appendAfter = page.getElementById("gallery_dot_progress");
         
+        
         for (String video : videos) {
-            int idStart = video.lastIndexOf("/") + 1;
-            int idEnd = video.indexOf("?");
-            if (idEnd < 0) {
-                idEnd = video.length();
-            }
+            String videoId = extractId(video);
+            
             String toWrite = 
                     "        <div class=\"jog_video\">" + System.lineSeparator() +
-                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + video.substring(idStart, idEnd) + "\""+ System.lineSeparator() +
+                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + videoId + "\""+ System.lineSeparator() +
                     "                title=\"YouTube video player\" frameborder=\"0\""+ System.lineSeparator() +
                     "                allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\""+ System.lineSeparator() +
                     "                referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" + System.lineSeparator() +
@@ -137,35 +151,36 @@ public class CreateListing {
         }
     }
 
+    // formats supported:
+    // https://www.youtube.com/watch?v=Zm4zWUoRQpo
+    // https://youtu.be/x1TOTwSb0xc?is=o7EoG8GKI_7k6qh0
+    // https://youtu.be/x1TOTwSb0xc
+    private static String extractId(String video) {
+        int idStart, idEnd;
+        if (video.contains("/watch")) {
+            idStart = video.indexOf("=") + 1;
+            idEnd = video.indexOf("&");
+            if (idEnd < 0) {
+                idEnd = video.length();
+            }
+        } else {
+            idStart = video.lastIndexOf("/") + 1;
+            idEnd = video.indexOf("?");
+            if (idEnd < 0) {
+                idEnd = video.length();
+            }
+        }
+        return video.substring(idStart, idEnd);
+    }
+
     private static String getEquibaseLink(String title) throws InterruptedException {
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments(
-                "--headless=new",          // new headless mode (Chrome ≥ 112)
-                "--disable-gpu",
-                "--no-sandbox",
-                "--disable-dev-shm-usage", // avoids crashes in Docker / CI
-                "--window-size=1280,900",
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        + "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        + "Chrome/124.0.0.0 Safari/537.36"
-                );
-        WebDriver driver = new ChromeDriver(options);
-
-        driver.get("https://www.equibase.com");
-        Thread.sleep(1000);
-
-        WebElement searchBox = driver.findElement(By.className("header-search-form"));
-        WebElement input = searchBox.findElement(By.className("input"));
-        input.sendKeys(title);
-        input.sendKeys(Keys.ENTER);
-        
-        Thread.sleep(2000);
+        WebDriver driver = EquibaseConnector.loadEquibaseUrl(title);
         try {
             return driver.getCurrentUrl();
         } catch (Exception e) {
             return "";
         } finally {
-            driver.quit();
+            EquibaseConnector.reset();
         }
     }
     
@@ -186,10 +201,10 @@ public class CreateListing {
         });
         
         MarkPlaced.updatePage("index.html", page -> {
-            page.getElementById("full_available_list").append("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" + System.lineSeparator() +
+            page.getElementById("full_available_list").prepend("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" + System.lineSeparator() +
                     "            horse_title=\"" + title + "\">");
             Element ul = page.select(".recent_adds").getFirst().getElementsByTag("ul").getFirst();
-            ul.append("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>");
+            ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>");
         });
     }
 }

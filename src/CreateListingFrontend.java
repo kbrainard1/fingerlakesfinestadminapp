@@ -44,7 +44,15 @@ public class CreateListingFrontend {
     public static final int OVERALL_WIDTH = 700;
 
     public static void main(String[] args) throws Exception {
-        threadPool.submit(() -> GithubConnector.init());
+        threadPool.submit(() -> {
+            GithubConnector.init();
+            try {
+                SimpleServer.start();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            EquibaseConnector.init();
+        });
         
         UIManager.setLookAndFeel(
                 UIManager.getSystemLookAndFeelClassName());
@@ -122,9 +130,14 @@ public class CreateListingFrontend {
     }
 
     private static JPanel createTopLevelMenu() {
+        JButton createListingFromFb = new CustomButton("Add Horse From FB Post");
+        createListingFromFb.addActionListener(e -> {
+            AddHorseFromFb comp = new AddHorseFromFb();
+            swapInComponent(comp);
+        });
         JButton createListing = new CustomButton("Add New Available Horse");
         createListing.addActionListener(e -> {
-            AddHorseComponent comp = new AddHorseComponent();
+            AddHorseDetailed comp = new AddHorseDetailed();
             swapInComponent(comp);
         });
         JButton markPlaced = new CustomButton("Mark Horse As Placed");
@@ -132,13 +145,14 @@ public class CreateListingFrontend {
             MarkPlacedComponent comp = new MarkPlacedComponent();
             swapInComponent(comp);
         });
-        JButton deploy = new CustomButton("Preview Site & Deploy");
+        JButton deploy = new CustomButton("Deploy Changes To Site");
         deploy.addActionListener(e -> {
             PreviewDeployComponent comp = new PreviewDeployComponent();
             swapInComponent(comp);
         });
         
-        JPanel wrapped = wrapButton(createListing);
+        JPanel wrapped = wrapButton(createListingFromFb);
+        wrapped.add(createListing);
         wrapped.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY));
         wrapped.setBackground(ADMIN_BACKGROUND);
         wrapped.add(markPlaced);

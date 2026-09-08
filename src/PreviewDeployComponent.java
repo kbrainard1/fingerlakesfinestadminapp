@@ -1,13 +1,13 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
-import java.io.File;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 
+// Add details for what to do if it doesn't look good
 public class PreviewDeployComponent extends JPanel {
 
     PreviewDeployComponent() {
@@ -16,14 +16,14 @@ public class PreviewDeployComponent extends JPanel {
             GithubConnector.cloneStaging();
             
             try {
-                URI uri = new File("staging/index.html").toURI();
-                Desktop.getDesktop().browse(uri);
+                // otherwise the embedded youtube videos don't have a valid referrer
+                Desktop.getDesktop().browse(new URI("http://127.0.0.1:8080/index.html"));
             } catch (Exception e1) {
                 throw new RuntimeException(e1);
             }
         });
         
-        JButton deploy = new CustomButton("Looks good, deploy to actual site");
+        JButton deploy = new CustomButton("Looks good, deploy site!");
         deploy.addActionListener(e -> {
             GithubConnector.mergeStaging();
         });
@@ -32,7 +32,8 @@ public class PreviewDeployComponent extends JPanel {
         JPanel wrapButton = CreateListingFrontend.wrapButton(preview);
         wrapButton.add(deploy);
         
-        add(wrapButton, BorderLayout.CENTER);
+        
+        add(wrapButton, BorderLayout.NORTH);
         setOpaque(true);
         setBackground(Color.WHITE);
     }

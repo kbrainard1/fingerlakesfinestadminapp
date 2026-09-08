@@ -15,6 +15,10 @@ import javax.swing.border.LineBorder;
 public class CustomPhoto extends JLabel {
 
     protected static final int CLOSE_SIZE = 15;
+    
+    public static final int WIDTH = 150;
+    public static final int HEIGHT = 150;
+    
     private Image img;
     private String fileName;
     private Color border = null;
@@ -103,6 +107,7 @@ public class CustomPhoto extends JLabel {
                         && e.getX() > getEffectiveWidth() - CLOSE_SIZE) {
                     Container parent =  getParent();
                     parent.remove(CustomPhoto.this); 
+                    parent.setPreferredSize(new Dimension(parent.getComponentCount() * WIDTH, HEIGHT + 20));
                     parent.revalidate();
                     parent.repaint();
                 }
@@ -127,11 +132,11 @@ public class CustomPhoto extends JLabel {
         if (firstPhoto) {
             int textHeight = 17;
             g.setColor(Color.WHITE);
-            g.fillRect(0, getHeight() - textHeight, img.getWidth(null), textHeight);
+            g.fillRect(0, getEffectiveHeight() - textHeight, img.getWidth(null), textHeight);
             g.setColor(Color.BLACK);
             g.setFont(new Font("Arial", Font.BOLD, 12));
             
-            g.drawString("Profile Photo", 12, getHeight() - 7); // border = 5, spacing = 2
+            g.drawString("Profile Photo", 12, getEffectiveHeight() - 7); // border = 5, spacing = 2
         }
         drawBorder(g);
         drawClose(g);
@@ -140,6 +145,10 @@ public class CustomPhoto extends JLabel {
     
     private int getEffectiveWidth() {
         return Math.min(getWidth(), img.getWidth(null));
+    }
+    
+    private int getEffectiveHeight() {
+        return Math.min(getHeight(), img.getHeight(null));
     }
     
     private void drawClose(Graphics g) {
@@ -152,7 +161,7 @@ public class CustomPhoto extends JLabel {
     private void drawBorder(Graphics g) {
         if (border != null) {
             int width = getEffectiveWidth();
-            int height = img.getHeight(null);
+            int height = getEffectiveHeight();
             new LineBorder(border, 5).paintBorder(this, g, 0, 0, width, height);
         }
     }
