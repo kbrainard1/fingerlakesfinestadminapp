@@ -67,8 +67,6 @@ public class CreateListing {
         Element firstMainChild = page.getElementById("image_gallery_full");
         firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + thumbName + "\">");
         firstMainChild.before("    <h1>" + title + "</h1>");
-        
-        List<String> videos = new ArrayList<>();
 
         for (String bioPara : bio) {
             firstMainChild.before("<p>" + bioPara + "</p>");
@@ -80,7 +78,7 @@ public class CreateListing {
         GithubConnector.commitNew("horsePages/" + shortName + "_files/" + thumbName, thumbName);
         writeImages(page, shortName, imagePaths);
         
-        writeVideos(page, videos);
+        writeVideos(page, videoLinks);
         
         page.outputSettings(page.outputSettings().prettyPrint(false));
         try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
@@ -90,7 +88,7 @@ public class CreateListing {
        boolean newPage = GithubConnector.commitNew("horsePages/" + shortName + ".html", "temp.html");
        if (!newPage) {
            // Generally, semantic merge conflict, horse has already been posted
-           return;
+           //return;
        }
 
         String snippet = buildSnippet(bio);
@@ -98,8 +96,6 @@ public class CreateListing {
         updateMetadata(title,  "horsePages/" + shortName + "_files/" + thumbName, 
                 "horsePages/" + shortName + ".html", snippet);
     }
-
-
 
     private static void writeImages(Document page, String shortName,
             List<String> imageFullPaths) throws Exception {

@@ -34,6 +34,9 @@ public class EquibaseConnector {
     }
     
     public static synchronized WebDriver loadEquibaseUrl(String title) throws InterruptedException {
+        if (driver == null) {
+            init();
+        }
         WebElement searchBox = driver.findElement(By.className("header-search-form"));
         WebElement input = searchBox.findElement(By.className("input"));
         input.sendKeys(title);

@@ -103,6 +103,8 @@ public class AddHorseDetailed extends AddHorseShared {
                     List<String> imageFiles = prepImageFiles();
 
                     List<String> bioPlusBoilerplate = Arrays.asList(bio.getText().split("\n"));
+                    bioPlusBoilerplate.add(contact.getData());
+                    bioPlusBoilerplate.add(price.getData());
                     bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
                             + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
 

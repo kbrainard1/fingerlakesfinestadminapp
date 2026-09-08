@@ -152,10 +152,11 @@ public class CustomPhoto extends JLabel {
     }
     
     private void drawClose(Graphics g) {
+        g.setColor(Color.WHITE);
+        g.fillRect(getEffectiveWidth() - CLOSE_SIZE, 0, CLOSE_SIZE, CLOSE_SIZE);
         g.setColor(Color.RED);
-        g.drawLine(getEffectiveWidth() - CLOSE_SIZE + 1, 1, getEffectiveWidth() - 1, CLOSE_SIZE - 1);
-        g.drawLine(getEffectiveWidth() - CLOSE_SIZE + 1, CLOSE_SIZE - 1, getEffectiveWidth() - 1, 1);
-        g.drawRect(getEffectiveWidth() - CLOSE_SIZE,0, CLOSE_SIZE, CLOSE_SIZE);
+        g.setFont(new Font("Courier", Font.BOLD, 24));
+        g.drawString("\u00D7", getEffectiveWidth() - CLOSE_SIZE, CLOSE_SIZE);
     }
 
     private void drawBorder(Graphics g) {
