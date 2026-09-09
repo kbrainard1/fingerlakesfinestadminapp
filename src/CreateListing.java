@@ -7,7 +7,6 @@ import java.util.List;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.openqa.selenium.WebDriver;
 
 public class CreateListing {
 
@@ -47,7 +46,7 @@ public class CreateListing {
             }
             bio.add(data.get(i));
         }
-        createListingPage(name, title, thumbName, imagePaths, getEquibaseLink(shortName), pedigreeLink, videoLinks, bio);
+        createListingPage(name, title, thumbName, imagePaths, EquibaseConnector.loadEquibaseUrl(shortName), pedigreeLink, videoLinks, bio);
     }
     
     public static void createListingPage(String name, String title, String thumbName,
@@ -151,7 +150,7 @@ public class CreateListing {
     // https://www.youtube.com/watch?v=Zm4zWUoRQpo
     // https://youtu.be/x1TOTwSb0xc?is=o7EoG8GKI_7k6qh0
     // https://youtu.be/x1TOTwSb0xc
-    private static String extractId(String video) {
+    public static String extractId(String video) {
         int idStart, idEnd;
         if (video.contains("/watch")) {
             idStart = video.indexOf("=") + 1;
@@ -168,17 +167,6 @@ public class CreateListing {
         }
         return video.substring(idStart, idEnd);
     }
-
-    private static String getEquibaseLink(String title) throws InterruptedException {
-        WebDriver driver = EquibaseConnector.loadEquibaseUrl(title);
-        try {
-            return driver.getCurrentUrl();
-        } catch (Exception e) {
-            return "";
-        } finally {
-            EquibaseConnector.reset();
-        }
-    }
     
  // updates index & available.html
     public static void updateMetadata(String title, String thumbPath, String pageUrl, String snippet) throws Exception {
@@ -192,15 +180,15 @@ public class CreateListing {
                     "        <p>" + snippet + System.lineSeparator() +
                     "        <a href=\"" + pageUrl + "\">Continue Reading...</a></p> " + System.lineSeparator() +
                     "        </div>" + System.lineSeparator() +
-                    "    </div>";
+                    "    </div>" + System.lineSeparator();
             titleElem.after(toAdd);
         });
         
         MarkPlaced.updatePage("index.html", page -> {
-            page.getElementById("full_available_list").prepend("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" + System.lineSeparator() +
-                    "            horse_title=\"" + title + "\">");
+            page.getElementById("full_available_list").prepend("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" +
+                    "            horse_title=\"" + title + "\">" + System.lineSeparator());
             Element ul = page.select(".recent_adds").getFirst().getElementsByTag("ul").getFirst();
-            ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>");
+            ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>" + System.lineSeparator());
         });
     }
 }

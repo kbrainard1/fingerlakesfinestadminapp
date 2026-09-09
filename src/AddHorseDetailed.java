@@ -1,18 +1,20 @@
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.WebDriver;
 
 public class AddHorseDetailed extends AddHorseShared {
     private DataFieldComponent name;
@@ -25,10 +27,11 @@ public class AddHorseDetailed extends AddHorseShared {
     private DataFieldComponent contact;
     private DataFieldComponent equibaseLink;
     private DataFieldComponent pedigreeLink;
-    private JTextField videos;
+    private VideoPanel videos;
 
     public AddHorseDetailed() {
         setLayout(new BorderLayout());
+        EquibaseConnector.precacheConnection();
 
         JLabel firstPageLabel = new JLabel("First, enter the horse stats");
         firstPageLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
@@ -49,7 +52,7 @@ public class AddHorseDetailed extends AddHorseShared {
             }
         });
         header.add(CreateListingFrontend.wrapButton(autofill));
-        JButton next = new CustomButton("Next");
+        JButton next = new CustomButton("Next - Add Details");
         header.add(next);
         next.addActionListener(e -> {
             if (validateForm()) {
@@ -88,10 +91,9 @@ public class AddHorseDetailed extends AddHorseShared {
         remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.CENTER));
         remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.NORTH));
 
-        JLabel firstPageLabel = new JLabel("Add horse details");
-        firstPageLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
-        JPanel header = CreateListingFrontend.wrapButton(firstPageLabel);
         JButton next = new CustomButton("Create Horse Webpage");
+        JPanel header = CreateListingFrontend.wrapButton(next);
+        
         header.add(next);
         next.addActionListener(e -> {
 
@@ -99,7 +101,6 @@ public class AddHorseDetailed extends AddHorseShared {
 
             CreateListingFrontend.threadPool.submit(() -> {
                 try {
-
                     List<String> imageFiles = prepImageFiles();
 
                     List<String> bioPlusBoilerplate = Arrays.asList(bio.getText().split("\n"));
@@ -108,11 +109,12 @@ public class AddHorseDetailed extends AddHorseShared {
                     bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
                             + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
 
-                    List<String> videoLinks = Arrays.asList(videos.getText().split(","));
+                    List<String> videoLinks = videos.getYoutubeLinks();
                     String title = name.getData().toUpperCase() + ", " + year.getData() + ", " + height.getData() + " " + color.getData() + " " + sex.getData();
                     CreateListing.createListingPage(name.getData(), title, "profile.jpg",
                             imageFiles, equibaseLink.getData(), pedigreeLink.getData(), videoLinks,
                             bioPlusBoilerplate);
+                    createFbPost();
                 } catch (Exception e1) {
                     throw new RuntimeException(e1);
                 } finally {
@@ -123,17 +125,37 @@ public class AddHorseDetailed extends AddHorseShared {
         add(header, BorderLayout.NORTH);
 
         JPanel center = new JPanel();
-        center.setLayout(new GridLayout(0, 1));
-        JPanel bioPanel = CreateListingFrontend.wrapButton(new JLabel("Horse Bio: "));
-        bio = new JTextArea(30, 100);
-        bioPanel.add(bio);
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        JLabel bioLabel = new JLabel("Horse Bio: ");
+        bioLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+        JPanel bioPanel = CreateListingFrontend.wrapButton(bioLabel, new FlowLayout(FlowLayout.LEFT));
+        bio = new JTextArea(10, 70);
+        bio.setBackground(CreateListingFrontend.ADMIN_BACKGROUND);
+        JScrollPane scrollBio = new JScrollPane(bio, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollBio.setPreferredSize(new Dimension(CreateListingFrontend.OVERALL_WIDTH - 100, 200));
+        bioPanel.add(scrollBio);
         center.add(bioPanel);
         center.add(photosPanel);
-        JPanel videoPanel = CreateListingFrontend.wrapButton(new JLabel("Comma-separated youtube links: "));
-        videos = new JTextField(100);
-        videoPanel.add(videos);
+        
+        addVideoPanel(center);
         add(center, BorderLayout.CENTER);
+        
+        revalidate();
+        repaint();
     }
+
+    private void createFbPost() {
+        // TODO Auto-generated method stub
+        
+    }
+
+
+    private void addVideoPanel(JPanel center) {
+        videos = new VideoPanel(name.getData());
+        center.add(videos);
+    }
+
 
     private boolean validateForm() {
         return validate(name) &&
@@ -165,24 +187,17 @@ public class AddHorseDetailed extends AddHorseShared {
             }
         }
 
-        WebDriver driver;
-        try {
-            driver = EquibaseConnector.loadEquibaseUrl(sanitized.toString());
-
-            String url = driver.getCurrentUrl();
-            Document horsePage = Jsoup.parse(driver.getPageSource());
-            Elements elems = horsePage.select(".horse-profile-top-bar-headings");
-            String[] horseDeets = elems.getFirst().ownText().split(",");
-            equibaseLink.setText(url);
-            color.setText(expandColor(horseDeets[1]));
-            sex.setText(expandSex(horseDeets[2]));
-            year.setText(horseDeets[horseDeets.length - 1]);
-            pedigreeLink.setText(horsePage.select("a[href*=equineline.com/Free]").getFirst().attr("href"));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            EquibaseConnector.reset();
-        }
+       
+        EquibaseConnector.HorsePage horseInfo = EquibaseConnector.loadHorsePage(sanitized.toString());
+        String url = horseInfo.url();
+        Document horsePage = Jsoup.parse(horseInfo.contents());
+        Elements elems = horsePage.select(".horse-profile-top-bar-headings");
+        String[] horseDeets = elems.getFirst().ownText().split(",");
+        equibaseLink.setText(url);
+        color.setText(expandColor(horseDeets[1]));
+        sex.setText(expandSex(horseDeets[2]));
+        year.setText(horseDeets[horseDeets.length - 1]);
+        pedigreeLink.setText(horsePage.select("a[href*=equineline.com/Free]").getFirst().attr("href"));
 
     }
 

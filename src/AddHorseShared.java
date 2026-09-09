@@ -14,10 +14,12 @@ import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JFileChooser;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.filechooser.FileSystemView;
+
+import javafx.application.Platform;
+import javafx.stage.FileChooser;
 
 public abstract class AddHorseShared extends JPanel {
 
@@ -28,49 +30,58 @@ public abstract class AddHorseShared extends JPanel {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         JButton selectPhotos = new CustomButton("Select All Photos");
 
-        JFileChooser photos = new JFileChooser();
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle( "Select Horse Photos");
+
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Image Files", "*.jpg", "*.jpeg", "*.png", "*.gif"),
+                new FileChooser.ExtensionFilter("All Files", "*.*")
+                );
+        
         try {
+            FileSystemView view = FileSystemView.getFileSystemView();
+            fileChooser.setInitialDirectory(view.getHomeDirectory());
+            
             // Windows, man. I have *opinions*
-            String currentFolder = photos.getCurrentDirectory().getCanonicalFile().getCanonicalPath();
+            String currentFolder = view.getHomeDirectory().getCanonicalFile().getCanonicalPath();
             currentFolder = currentFolder.substring(0, currentFolder.lastIndexOf(File.separator) + 1) + "Downloads";
             File downloads = new File(currentFolder);
             if (downloads.exists()) {
-                photos.setCurrentDirectory(downloads);
+                fileChooser.setInitialDirectory(downloads);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        photos.putClientProperty("FileChooser.useShellFolder", false);
-        photos.setAccessory(new FileImagePreview(photos));
-        photos.setPreferredSize(new Dimension(1000, 600));
-        photos.setMultiSelectionEnabled(true);
-        photos.setFileFilter(new FileNameExtensionFilter("All Image Files", "jpg", "jpeg", "png", "bmp", "gif"));
+        
+        
         selectPhotos.addActionListener(e -> {
-            int result = photos.showDialog(this, "Select Horse Photos");
-            if (result == JFileChooser.APPROVE_OPTION) {
-                CreateListingFrontend.showSpinner();
-                CreateListingFrontend.threadPool.submit(() -> {
-                    try {
-                        for (File f : photos.getSelectedFiles()) {
-                            try {
-                                Image img = ImageIO.read(f).getScaledInstance(CustomPhoto.WIDTH, CustomPhoto.HEIGHT, Image.SCALE_SMOOTH);
-                                JComponent comp = new CustomPhoto(img, f.getCanonicalPath());
-                                photosPreview.add(comp);
-                            } catch (IOException e1) {
-                                throw new RuntimeException(e1);
-                            }
-                        }
-                        photosPreview.setPreferredSize(new Dimension(CustomPhoto.WIDTH * photosPreview.getComponentCount(), 
-                                CustomPhoto.HEIGHT + 20));
 
-                        repaint();
-                        revalidate();
-                    } finally {
-                        CreateListingFrontend.hideSpinner();
-                    }
-                });
-            }
+            Platform.runLater(() -> {
+                List<File> result = fileChooser.showOpenMultipleDialog(null);
+                if (result != null) {
+                    CreateListingFrontend.showSpinner();
+                    CreateListingFrontend.threadPool.submit(() -> {
+                        try {
+                            for (File f : result) {
+                                try {
+                                    Image img = ImageIO.read(f).getScaledInstance(CustomPhoto.WIDTH, CustomPhoto.HEIGHT, Image.SCALE_SMOOTH);
+                                    JComponent comp = new CustomPhoto(img, f.getCanonicalPath());
+                                    photosPreview.add(comp);
+                                } catch (IOException e1) {
+                                    throw new RuntimeException(e1);
+                                }
+                            }
+                            photosPreview.setPreferredSize(new Dimension(CustomPhoto.WIDTH * photosPreview.getComponentCount(), 
+                                    CustomPhoto.HEIGHT + 20));
+
+                            repaint();
+                            revalidate();
+                        } finally {
+                            CreateListingFrontend.hideSpinner();
+                        }
+                    });
+                }
+            });
         });
 
         photosPanel = new JPanel();

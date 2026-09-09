@@ -1,5 +1,6 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -24,6 +25,8 @@ import javax.swing.JPanel;
 import javax.swing.UIManager;
 import javax.swing.plaf.ColorUIResource;
 
+import javafx.embed.swing.JFXPanel;
+
 public class CreateListingFrontend {
     
     // TODO: 
@@ -34,6 +37,7 @@ public class CreateListingFrontend {
     //
 
     static  JLabel spinnerLayer;
+    static Component nonSpinnerLayer;
     static JFrame outerFrame;
     static JPanel mainLayer;
     static JLayeredPane layeredPane;
@@ -51,8 +55,10 @@ public class CreateListingFrontend {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            EquibaseConnector.init();
         });
+        
+        // initialize JavaFX Toolkit
+        new JFXPanel();
         
         UIManager.setLookAndFeel(
                 UIManager.getSystemLookAndFeelClassName());
@@ -180,7 +186,8 @@ public class CreateListingFrontend {
         return panel;
     }
     
-    public static void showSpinner() {        
+    public static void showSpinner() {
+        nonSpinnerLayer = layeredPane.getComponent(0);
         layeredPane.add(spinnerLayer);
         spinnerLayer.requestFocus();
         layeredPane.revalidate();
@@ -206,8 +213,11 @@ public class CreateListingFrontend {
     
     public static void hideSpinner() {
         layeredPane.remove(spinnerLayer);
+        // pretty sure it's a swing bug that this is getting unset
+        layeredPane.getLayout().addLayoutComponent("Center", nonSpinnerLayer);
         layeredPane.revalidate();
         layeredPane.repaint();
+        outerFrame.getContentPane().requestFocus();
     }
 
     private static AtomicBoolean spinnerShowing = new AtomicBoolean(false);

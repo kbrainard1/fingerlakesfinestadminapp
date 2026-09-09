@@ -1,5 +1,10 @@
+plugins {
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
 apply plugin: 'java'
 apply plugin: 'eclipse'
+
 
 eclipse.project.name = 'ManageFLF' 
 
@@ -20,11 +25,19 @@ repositories {
     mavenCentral()
 }
 
+javafx {
+    modules = [ 'javafx.controls', 'javafx.graphics' ]
+}
+
 
 dependencies {
     implementation "org.seleniumhq.selenium:selenium-java:4.20.0"
        implementation "org.jsoup:jsoup:1.17.2"
        implementation("org.kohsuke:github-api:1.330")
+    implementation("com.google.api-client:google-api-client:2.2.0")
+        implementation 'com.google.apis:google-api-services-youtube:v3-rev20251217-2.0.0'
+        implementation 'com.restfb:restfb:2025.6.0'
+        implementation 'org.openjfx:javafx-swing:21.0.2'
 }
 
 

@@ -28,14 +28,14 @@ public class MarkPlacedComponent extends JPanel {
                         
                         if (comp.isSelected()) {
                             MarkPlaced.markPlaced(comp.getHref(), comp.getDetails());
-                            // Eventually: also update the FB post
+                            updateFbPost(comp.getHref(), comp.getDetails());
                         }
                     }
                     loadHorses();
                 } catch (Exception e1) {
                     throw new RuntimeException(e1);
                 } finally {
-                    
+                    CreateListingFrontend.hideSpinner();
                 }
             });
 
@@ -54,6 +54,11 @@ public class MarkPlacedComponent extends JPanel {
             loadHorses();
             CreateListingFrontend.hideSpinner();
         });
+    }
+
+    private void updateFbPost(String href, String details) {
+        // TODO Auto-generated method stub
+        
     }
 
     private void loadHorses() {
