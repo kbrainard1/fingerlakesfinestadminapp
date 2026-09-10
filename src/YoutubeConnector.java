@@ -72,7 +72,7 @@ public class YoutubeConnector {
         request.setId(Collections.singletonList(videoId));
 
      
-        Video video = request.execute().getItems().getFirst();
+        Video video = request.execute().getItems().get(0);
         return new YoutubeResult(video.getSnippet().getTitle(), video.getSnippet().getThumbnails().getMedium(), video.getId());
     }
 }

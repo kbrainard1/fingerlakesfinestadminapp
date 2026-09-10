@@ -80,7 +80,7 @@ public class MarkPlaced {
         updatePage("available.html", page -> {
             Elements snippets = page.select(".available_snippet_div");
             for (Element snippet : snippets) {
-                String horsePage = snippet.select(".available_title").getFirst().attr("href");
+                String horsePage = snippet.select(".available_title").get(0).attr("href");
                 if (horsePage.equalsIgnoreCase(hrefForHorsePage)) {
                     snippetToMove.append(snippet.outerHtml());
                     snippet.remove();
@@ -107,7 +107,7 @@ public class MarkPlaced {
                 }
             }
 
-            Element recentAdds = page.select(".recent_adds").getFirst().getElementsByTag("ul").getFirst();
+            Element recentAdds = page.select(".recent_adds").get(0).getElementsByTag("ul").get(0);
             for (Element li : recentAdds.children()) {
                 String horsePage = li.getElementsByTag("a").attr("href");
                 if (hrefForHorsePage.equalsIgnoreCase(horsePage)) {
@@ -119,14 +119,14 @@ public class MarkPlaced {
 
         // add to placed.html
         updatePage("placed.html", page -> {
-            Element main = page.getElementsByTag("main").getFirst();
+            Element main = page.getElementsByTag("main").get(0);
             main.children().get(1).after(snippetToMove.toString()); // h1 & year nav
         });
 
         // add optional notes or "PLACED" to top of horse page
         String notes = optionalDetails.isBlank() ? "PLACED" : optionalDetails;
         updatePage(hrefForHorsePage, page -> {
-            Element title = page.getElementsByTag("h1").getFirst();
+            Element title = page.getElementsByTag("h1").get(0);
             title.after("<p>" + notes + "</p>");
         });
     }

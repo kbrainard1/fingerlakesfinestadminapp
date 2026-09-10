@@ -192,12 +192,12 @@ public class AddHorseDetailed extends AddHorseShared {
         String url = horseInfo.url();
         Document horsePage = Jsoup.parse(horseInfo.contents());
         Elements elems = horsePage.select(".horse-profile-top-bar-headings");
-        String[] horseDeets = elems.getFirst().ownText().split(",");
+        String[] horseDeets = elems.get(0).ownText().split(",");
         equibaseLink.setText(url);
         color.setText(expandColor(horseDeets[1]));
         sex.setText(expandSex(horseDeets[2]));
         year.setText(horseDeets[horseDeets.length - 1]);
-        pedigreeLink.setText(horsePage.select("a[href*=equineline.com/Free]").getFirst().attr("href"));
+        pedigreeLink.setText(horsePage.select("a[href*=equineline.com/Free]").get(0).attr("href"));
 
     }
 

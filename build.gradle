@@ -1,9 +1,15 @@
 plugins {
     id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'edu.sc.seis.launch4j' version '4.0.0'
+    id 'application'
 }
 
 apply plugin: 'java'
 apply plugin: 'eclipse'
+
+application {
+   mainClass = 'CreateListingFrontend'
+}
 
 
 eclipse.project.name = 'ManageFLF' 
@@ -29,6 +35,11 @@ javafx {
     modules = [ 'javafx.controls', 'javafx.graphics' ]
 }
 
+launch4j {
+  headerType="console"
+  mainClassName = 'CreateListingFrontend'
+  icon = "${projectDir}/icon.ico"
+}
 
 dependencies {
     implementation "org.seleniumhq.selenium:selenium-java:4.20.0"
@@ -39,7 +50,6 @@ dependencies {
         implementation 'com.restfb:restfb:2025.6.0'
         implementation 'org.openjfx:javafx-swing:21.0.2'
 }
-
 
 test {
     useJUnitPlatform()

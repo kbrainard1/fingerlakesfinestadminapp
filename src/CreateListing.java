@@ -61,7 +61,7 @@ public class CreateListing {
         String shortName = shortNameBuilder;
 
         Document page = Jsoup.parse(MarkPlaced.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
-        page.getElementsByTag("head").getFirst().append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
+        page.getElementsByTag("head").get(0).append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
         
         Element firstMainChild = page.getElementById("image_gallery_full");
         firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + thumbName + "\">");
@@ -171,7 +171,7 @@ public class CreateListing {
  // updates index & available.html
     public static void updateMetadata(String title, String thumbPath, String pageUrl, String snippet) throws Exception {
         MarkPlaced.updatePage("available.html", page -> {
-            Element titleElem = page.getElementsByTag("h1").getFirst();
+            Element titleElem = page.getElementsByTag("h1").get(0);
             String toAdd = 
                     "    <div class=\"available_snippet_div\">" + System.lineSeparator() +
                     "        <a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a>" + System.lineSeparator() +
@@ -187,7 +187,7 @@ public class CreateListing {
         MarkPlaced.updatePage("index.html", page -> {
             page.getElementById("full_available_list").prepend("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" +
                     "            horse_title=\"" + title + "\">" + System.lineSeparator());
-            Element ul = page.select(".recent_adds").getFirst().getElementsByTag("ul").getFirst();
+            Element ul = page.select(".recent_adds").get(0).getElementsByTag("ul").get(0);
             ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>" + System.lineSeparator());
         });
     }
