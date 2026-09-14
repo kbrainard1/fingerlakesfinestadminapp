@@ -5,6 +5,7 @@ import java.net.URI;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 // Add details for what to do if it doesn't look good
@@ -23,14 +24,18 @@ public class PreviewDeployComponent extends JPanel {
             }
         });
         
+        JLabel success = new JLabel();
+        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
         JButton deploy = new CustomButton("Looks good, deploy site!");
         deploy.addActionListener(e -> {
             GithubConnector.mergeStaging();
+            success.setText("Successfully Deployed Site");
         });
         
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         JPanel wrapButton = CreateListingFrontend.wrapButton(preview);
         wrapButton.add(deploy);
+        wrapButton.add(success);
         
         
         add(wrapButton, BorderLayout.NORTH);

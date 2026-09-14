@@ -1,6 +1,7 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -10,32 +11,30 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.UIManager;
+import javax.swing.border.MatteBorder;
 import javax.swing.plaf.ColorUIResource;
 
 import javafx.embed.swing.JFXPanel;
 
 public class CreateListingFrontend {
     
-    // TODO: 
-    // Wire this up to the GH API so no local checkout is needed
-    // Figure out how to ship this
-    // Warn on unsaved changes (new & close)
-    // Add one other mode: enter horse info manually
-    //
+    // TODO: Warn on unsaved changes (new & close)
 
     static  JLabel spinnerLayer;
     static Component nonSpinnerLayer;
@@ -46,11 +45,11 @@ public class CreateListingFrontend {
     public static final Font DEFAULT_FONT = Font.decode("Arial");
     public static final Color ERROR_COLOR = new Color(160, 0, 0);
     public static final Color ADMIN_BACKGROUND = new Color(240, 240, 240);
-    public static final int OVERALL_WIDTH = 700;
+    public static final int OVERALL_WIDTH = 800;
+    public static final Color SUCCESS_COLOR = new Color(0, 180, 0);
 
     public static void main(String[] args) throws Exception {
         threadPool.submit(() -> {
-            GithubConnector.init();
             try {
                 SimpleServer.start();
             } catch (IOException e) {
@@ -60,11 +59,14 @@ public class CreateListingFrontend {
         
         // initialize JavaFX Toolkit
         new JFXPanel();
+       
         
         UIManager.setLookAndFeel(
                 UIManager.getSystemLookAndFeelClassName());
         UIManager.put("Button.focus", new ColorUIResource(new Color(0, 0, 0, 0)));
         UIManager.put("ToggleButton.focus", new ColorUIResource(new Color(0, 0, 0, 0)));
+
+        
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 outerFrame = new JFrame("FLF Admin Panel");
@@ -77,13 +79,19 @@ public class CreateListingFrontend {
 
                 outerFrame.setFont(DEFAULT_FONT);
                 
-                JPanel wrapped = createTopLevelMenu();
+                
 
                 mainLayer = new JPanel();
                 mainLayer.setLayout(new BorderLayout());
-                mainLayer.add(wrapped, BorderLayout.NORTH);
+                
                 JPanel fillerPanel = new JPanel();
                 fillerPanel.setPreferredSize(new Dimension(OVERALL_WIDTH, OVERALL_WIDTH));
+                fillerPanel.setBorder(new MatteBorder(1, 0, 0, 0, Color.BLACK));
+                fillerPanel.setBackground(Color.WHITE);
+                fillerPanel.setLayout(new FlowLayout());
+                JLabel githubLogin = new JLabel("Logging in to GitHub...");
+                githubLogin.setFont(DEFAULT_FONT.deriveFont(48f));
+                fillerPanel.add(githubLogin);
                 mainLayer.add(fillerPanel, BorderLayout.CENTER);
                 mainLayer.setBounds(0, 0, OVERALL_WIDTH, OVERALL_WIDTH);
 
@@ -97,7 +105,54 @@ public class CreateListingFrontend {
 
                 outerFrame.pack();
                 outerFrame.setVisible(true);
+                doLogin();
             }
+        });
+    }
+    
+    protected static void doLogin() {
+        CreateListingFrontend.threadPool.submit(() -> {
+            
+            GithubConnector.login((url, userCode) -> {
+                JLabel message1 = new JLabel("GitHub authorization needed!");
+                JLabel message2 = new JLabel("Go to " + url + " and enter the following code:");
+                message1.setFont(DEFAULT_FONT.deriveFont(24f));
+                message2.setFont(DEFAULT_FONT.deriveFont(24f));
+                JTextField code = new JTextField(userCode);
+                code.setFont(DEFAULT_FONT.deriveFont(36f));
+                code.setEditable(false);
+                JButton openSite = new CustomButton("Open Link In Browser");
+                openSite.addActionListener(e -> {
+                    try {
+                        Desktop.getDesktop().browse(URI.create(url));
+                    } catch (IOException e1) {
+                        throw new RuntimeException(e1);
+                    }
+                });
+                JPanel panel = new JPanel();
+                panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+                for (int i = 0; i < 10; i++) {
+                    // squish the flow layouts
+                    panel.add(wrapButton(new JLabel(" ")));
+                }
+                panel.add(wrapButton(message1));
+                panel.add(wrapButton(message2));
+                panel.add(wrapButton(code));
+                panel.add(wrapButton(openSite));
+                for (int i = 0; i < 10; i++) {
+                    // squish the flow layouts
+                    panel.add(wrapButton(new JLabel(" ")));
+                }
+                swapInComponent(panel);
+            });
+            
+            JPanel wrapped = createTopLevelMenu();
+            mainLayer.add(wrapped, BorderLayout.NORTH);
+            JPanel fillerPanel = new JPanel();
+            fillerPanel.setPreferredSize(new Dimension(OVERALL_WIDTH, OVERALL_WIDTH));
+            fillerPanel.setBorder(new MatteBorder(1, 0, 0, 0, Color.BLACK));
+            fillerPanel.setBackground(Color.WHITE);
+            swapInComponent(fillerPanel);
         });
     }
     
@@ -152,6 +207,11 @@ public class CreateListingFrontend {
             MarkPlacedComponent comp = new MarkPlacedComponent();
             swapInComponent(comp);
         });
+        JButton editListing = new CustomButton("Edit Existing Horse's Info");
+        editListing.addActionListener(e -> {
+            EditHorseComponent comp = new EditHorseComponent();
+            swapInComponent(comp);
+        });
         JButton deploy = new CustomButton("Deploy Changes To Site");
         deploy.addActionListener(e -> {
             PreviewDeployComponent comp = new PreviewDeployComponent();
@@ -163,6 +223,7 @@ public class CreateListingFrontend {
         wrapped.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY));
         wrapped.setBackground(ADMIN_BACKGROUND);
         wrapped.add(markPlaced);
+        wrapped.add(editListing);
         wrapped.add(deploy);
         return wrapped;
     }

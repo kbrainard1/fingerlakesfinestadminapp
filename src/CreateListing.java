@@ -10,7 +10,7 @@ import org.jsoup.nodes.Element;
 
 public class CreateListing {
 
-    public static void createListingPage(List<String> data, String thumbName,
+    public static boolean createListingPage(List<String> data, String thumbName,
             List<String> imagePaths) throws Exception {
         String title = data.get(0);
         // sometimes it's name, birth year, sometimes name birth year, height
@@ -46,10 +46,10 @@ public class CreateListing {
             }
             bio.add(data.get(i));
         }
-        createListingPage(name, title, thumbName, imagePaths, EquibaseConnector.loadEquibaseUrl(shortName), pedigreeLink, videoLinks, bio);
+        return createListingPage(name, title, thumbName, imagePaths, EquibaseConnector.loadEquibaseUrl(shortName), pedigreeLink, videoLinks, bio);
     }
     
-    public static void createListingPage(String name, String title, String thumbName,
+    public static boolean createListingPage(String name, String title, String thumbName,
             List<String> imagePaths, String raceRecordLink, String pedigreeLink, List<String> videoLinks,
             List<String> bio) throws Exception {
         String shortNameBuilder = "";
@@ -60,7 +60,7 @@ public class CreateListing {
         }
         String shortName = shortNameBuilder;
 
-        Document page = Jsoup.parse(MarkPlaced.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
+        Document page = Jsoup.parse(GithubConnector.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
         page.getElementsByTag("head").get(0).append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
         
         Element firstMainChild = page.getElementById("image_gallery_full");
@@ -87,13 +87,14 @@ public class CreateListing {
        boolean newPage = GithubConnector.commitNew("horsePages/" + shortName + ".html", "temp.html");
        if (!newPage) {
            // Generally, semantic merge conflict, horse has already been posted
-           //return;
+           return false;
        }
 
         String snippet = buildSnippet(bio);
 
         updateMetadata(title,  "horsePages/" + shortName + "_files/" + thumbName, 
                 "horsePages/" + shortName + ".html", snippet);
+        return true;
     }
 
     private static void writeImages(Document page, String shortName,
@@ -106,7 +107,7 @@ public class CreateListing {
         }
     }
 
-    private static String buildSnippet(List<String> data) {
+    public static String buildSnippet(List<String> data) {
         String snippet = "";
         int dataIndex = 0;
         int snippetLen = 400;

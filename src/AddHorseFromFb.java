@@ -50,39 +50,57 @@ public class AddHorseFromFb extends AddHorseShared {
         comp.setBackground(Color.WHITE);
         add(comp, BorderLayout.EAST);
 
-        add(photosPanel, BorderLayout.SOUTH);
+        add(photosPanel.getPhotosComponent(), BorderLayout.SOUTH);
 
         JButton createListing = new CustomButton("Done - Add Horse To Website");
         errorMessage = new JLabel();
-        errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
+        errorMessage.setFont(CreateListingFrontend.DEFAULT_FONT);
         createListing.addActionListener(e -> {
-            if (photosPreview.getComponentCount() == 0) {
+            if (!photosPanel.hasPhoto()) {
+                errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
                 errorMessage.setText("Must have at least one photo!");
                 return;
             }
             if (fbPost.getText().isBlank()) {
+                errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
                 errorMessage.setText("Must have some text from the FB post!");
                 return;
             }
+            errorMessage.setText("");
 
             CreateListingFrontend.showSpinner();
 
             CreateListingFrontend.threadPool.submit(() -> {
+                boolean created = false;
                 try {
                     List<String> fbPostData = Arrays.asList(fbPost.getText().split("\n"));
-                    List<String> imageFiles = prepImageFiles();
+                    List<String> imageFiles = photosPanel.prepImageFiles();
                     
-                    CreateListing.createListingPage(fbPostData, "profile.jpg", imageFiles);
+                    created = CreateListing.createListingPage(fbPostData, "profile.jpg", imageFiles);
                 } catch (Exception e1) {
                     throw new RuntimeException(e1);
                 } finally {
-                    CreateListingFrontend.hideSpinner();
+                    try {
+                        showSuccess(created);
+                    } finally {
+                        CreateListingFrontend.hideSpinner();
+                    }
                 }
             });
         });
         JPanel wrapButton = CreateListingFrontend.wrapButton(createListing);
         wrapButton.add(errorMessage);
         add(wrapButton, BorderLayout.NORTH);
+    }
+
+    private void showSuccess(boolean success) {
+        if (!success) {
+            errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
+            errorMessage.setText("Unexpected error! Possibly a duplicate listing, check the preview under 'Deploy Changes'");
+        } else {
+            errorMessage.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+            errorMessage.setText("Success! Click 'Deploy Changes' to preview and publish the new page");
+        }
     }
     
 }

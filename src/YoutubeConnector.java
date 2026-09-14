@@ -1,6 +1,3 @@
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,12 +17,7 @@ public class YoutubeConnector {
     static String token;
 
     static {
-        try {
-            token = Files.readAllLines(Path.of("env")).stream().filter(line -> line.contains(TOKEN_KEY))
-                    .map(line -> line.substring(line.indexOf("=") + 1)).toList().get(0);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        token = AuthHandler.AUTH_HANDLER.getToken(TOKEN_KEY, "");
     }
     
     public static record YoutubeResult(String title, Thumbnail thumb, String videoId) {}

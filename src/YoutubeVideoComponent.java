@@ -1,8 +1,10 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.event.MouseEvent;
@@ -20,6 +22,8 @@ import javax.swing.border.MatteBorder;
 
 
 public class YoutubeVideoComponent extends JComponent {
+    
+    protected static final int CLOSE_SIZE = 15;
     
     public static final int WIDTH = 250;
     public static final int HEIGHT = 180;
@@ -73,15 +77,38 @@ public class YoutubeVideoComponent extends JComponent {
 
            @Override
            public void mouseClicked(MouseEvent e) {
-               try {
-                Desktop.getDesktop().browse(URI.create("https://www.youtube.com/watch?v=" + video.videoId()));
-            } catch (IOException e1) {
-                throw new RuntimeException(e1);
-            }
+               if (e.getY() < CLOSE_SIZE && e.getX() < getWidth()
+                       && e.getX() > getWidth() - CLOSE_SIZE) {
+                   Container parent =  getParent();
+                   parent.remove(YoutubeVideoComponent.this); 
+                   parent.setPreferredSize(new Dimension(parent.getComponentCount() * WIDTH, HEIGHT + 20));
+                   parent.revalidate();
+                   parent.repaint();
+               } else {
+                   try {
+                       Desktop.getDesktop().browse(URI.create("https://www.youtube.com/watch?v=" + video.videoId()));
+                   } catch (IOException e1) {
+                       throw new RuntimeException(e1);
+                   }
+               }
            }
        });
        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
        setPreferredSize(new Dimension(WIDTH, HEIGHT + 40));
+    }
+    
+    @Override
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        drawClose(g);
+    }
+    
+    private void drawClose(Graphics g) {
+        g.setColor(Color.WHITE);
+        g.fillRect(getWidth() - CLOSE_SIZE, 0, CLOSE_SIZE, CLOSE_SIZE);
+        g.setColor(Color.RED);
+        g.setFont(new Font("Courier", Font.BOLD, 24));
+        g.drawString("\u00D7", getWidth() - CLOSE_SIZE, CLOSE_SIZE);
     }
 
     public String getVideoId() {

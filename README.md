@@ -8,17 +8,17 @@ This app allows for easy editing of the site content. Currently supported:
 
 # Installing
 
+1. Register for an account on github.com
+2. Contact Kathering or other site admin with your GitHub username and your operating system (windows, mac, linux) - we'll grant you write access to the site data and send you installation instructions (also available below):
+
 On Windows:
 
-Register on Github.com, and get Katherine to grant you access to the site
 Download and unzip "install.zip"
-Create a Github Personal Access Token (classic) on Github.com
-Add that token to the env file
-
-Now you can run the app by double-clicking it like a normal app
+Double-click on the FLFAdmin app (open like a normal app) - you'll be prompted to log in to GitHub and authorize the app
+Now you're all set!
 
 On Mac:
-Not really supported easily right now - clone the repo, then run the same authorization steps as on windows, then from the terminal, run `chmod a+rwx gradlew; ./gradlew run`
+Not really supported easily right now - clone the repo, then from the terminal, run `chmod a+rwx gradlew; ./gradlew run`
 
 If someone needs this on a Mac, we can investigate other options, but the requirement that dmg files be signed by a registered Mac developer likely means you'll be messing with the command line anyway
 
@@ -28,9 +28,12 @@ Hopefully self explanatory from the menu buttons. Each task saves data to the cl
 
  Once you've made all the changes you want for one session, click 'Deploy Changes To Site' - you can preview the changes before they go live 
 
-# If a change shows up as broken
+# Whoops, I made a typo that I spotted in 'Preview'!
 
-Right now: grab the staging branch and fix the html
+Select 'Edit an Existing Horse's Info' to fix or change anything about a horse's page
 
-Soon: There will be an 'edit' tab
+# FAQ
 
+Q: Why do you have to email me the install file when there's a repo *right here*?
+
+A: We need a marginally more secure than a public repo way to hand out the youtube API key - asking you to log in to your google account is a really heavy-handed way of accessing free-tier quota for public youtube data (especially because the average person isn't intimately familiar with google oauth scopes). The API key has extremely limited scope, so if it leaks it's not that big a deal (Hacker McHackson can send a few more automated searches to Youtube, but not read/edit any additional data), but even so. If we really wanted to go crazy, we could use an encrypted file transfer system rather than smtp, but this feels like the right balance of security and usability (folks have to have an email exchange for repo permissions anyway).
