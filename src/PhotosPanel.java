@@ -12,6 +12,7 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.filechooser.FileSystemView;
@@ -21,10 +22,12 @@ import javafx.stage.FileChooser;
 
 public class PhotosPanel {
 
+    public static final String THUMBNAIL_NAME = "profile.jpg";
+    
     protected JPanel photosPreview;
     protected JPanel photosPanel;
 
-    public PhotosPanel() {
+    public PhotosPanel(String initialText) {
         JButton selectPhotos = new CustomButton("Select All Photos");
 
         FileChooser fileChooser = new FileChooser();
@@ -56,14 +59,7 @@ public class PhotosPanel {
             Platform.runLater(() -> {
                 List<File> result = fileChooser.showOpenMultipleDialog(null);
                 if (result != null) {
-                    CreateListingFrontend.showSpinner();
-                    CreateListingFrontend.threadPool.submit(() -> {
-                        try {
-                            addFiles(result);
-                        } finally {
-                            CreateListingFrontend.hideSpinner();
-                        }
-                    });
+                    addFiles(result);
                 }
             });
         });
@@ -76,15 +72,23 @@ public class PhotosPanel {
         JScrollPane photoWrapper = new JScrollPane(photosPreview,
                 JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         photosPreview.setLayout(new GridLayout(1, 0, 3, 3));
-        photosPreview.setPreferredSize(new Dimension(CustomPhoto.WIDTH, CustomPhoto.HEIGHT + 10));
+        if (!initialText.isBlank()) {
+            JLabel initialLabel = new JLabel(initialText);
+            initialLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+            photosPreview.add(initialLabel);
+        }
+        photosPreview.setPreferredSize(new Dimension(CustomPhoto.WIDTH, CustomPhoto.HEIGHT + 20));
         photosPanel.add(photoWrapper, BorderLayout.CENTER);
     }
 
     public void addFiles(List<File> files) {
+        if (photosPreview.getComponentCount() > 0 && !(photosPreview.getComponent(0) instanceof CustomPhoto)) {
+            photosPreview.remove(photosPreview.getComponent(0)); // initial loading text
+        }
         for (File f : files) {
             try {
-                Image img = ImageIO.read(f).getScaledInstance(CustomPhoto.WIDTH, CustomPhoto.HEIGHT, Image.SCALE_SMOOTH);
-                JComponent comp = new CustomPhoto(img, f.getCanonicalPath());
+                JComponent comp = new CustomPhoto(() -> ImageIO.read(f).getScaledInstance(CustomPhoto.WIDTH, CustomPhoto.HEIGHT, Image.SCALE_SMOOTH),
+                        f.getCanonicalPath());
                 photosPreview.add(comp);
             } catch (IOException e1) {
                 throw new RuntimeException(e1);
@@ -112,8 +116,18 @@ public class PhotosPanel {
         BufferedImage buffered = new BufferedImage(rawImage.getWidth() / 2, rawImage.getHeight() / 2, 
                 BufferedImage.TYPE_INT_RGB);
         buffered.getGraphics().drawImage(rawImage.getScaledInstance(rawImage.getWidth() / 2, 
-                rawImage.getHeight() / 2, Image.SCALE_DEFAULT), 0, 0 , null);
-        ImageIO.write(buffered, "jpg", new File("profile.jpg"));
+                rawImage.getHeight() / 2, Image.SCALE_SMOOTH), 0, 0 , null);
+        ImageIO.write(buffered, "jpg", new File(THUMBNAIL_NAME));
+        return imageFiles;
+    }
+    
+    // does not create a thumbnail
+    public List<String> getImageFilenames() {
+        List<String> imageFiles = new ArrayList<>();
+        for (int i = 0; i < photosPreview.getComponentCount(); i++) {
+            imageFiles.add(((CustomPhoto)photosPreview.getComponent(i)).getFileName());
+        }
+
         return imageFiles;
     }
 

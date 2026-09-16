@@ -17,48 +17,51 @@ public class MarkPlaced {
     public static void updatePage(String fileName, DocumentUpdater update) throws IOException {
         Document page = Jsoup.parse(GithubConnector.getString(GithubConnector.getRetriably(fileName)));
         update.update(page);
-        page.outputSettings(page.outputSettings().prettyPrint(false));
-        try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
-//            out.write("<!DOCTYPE html>");
-//            out.newLine();
-//            for (Element child : page.children()) {
-//                prettyPrint(out, child, 0);
-//            }
-            out.write(page.outerHtml());
-            out.newLine();
-        }
+        writePage(page);
         GithubConnector.commitChange(fileName, "temp.html");
     }
     
-    
+    public static void writePage(Document page) throws IOException {
+        page.outputSettings(page.outputSettings().prettyPrint(false));
+        try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
+            out.write("<!DOCTYPE html>");
+            out.newLine();
+            for (Element child : page.children()) {
+                prettyPrint(out, child, 0);
+            }
+            // We want pretty printing *except* don't change &lt to <
+            // Newlines and reformatting is a nightmare, so we largely reinvent the wheel
+           // out.write(page.outerHtml());
+        }
+    }
 
-//    private static void prettyPrint(BufferedWriter out, Element elem, int indent)  throws IOException {
-//        StringBuilder indentStr = new StringBuilder();
-//        for (int i = 0; i < 4*indent; i++) {
-//            indentStr.append(" ");
-//        }
-//        out.write(indentStr + "<" + elem.tag().toString() + elem.attributes() + ">");
-//        out.write(elem.wholeOwnText());
-//        if (elem.tagName().equals("script")) {
-//            out.write(elem.data());
-//        }
-//        if (elem.childrenSize() > 0) {
-//            out.newLine();
-//        }
-//        
-//        for (Element child : elem.children()) {
-//            prettyPrint(out, child, indent + 1);
-//        }
-//        // not everything has a close tag
-//        String closeTag = "</" + elem.tagName() + ">";
-//        if (elem.outerHtml().contains(closeTag)) {
-//            if (elem.childrenSize() > 0) {
-//                out.write(indentStr.toString());
-//            }
-//            out.write(closeTag);
-//        }
-//        out.newLine();
-//    }
+    private static void prettyPrint(BufferedWriter out, Element elem, int indent)  throws IOException {
+        StringBuilder indentStr = new StringBuilder();
+        for (int i = 0; i < 4*indent; i++) {
+            indentStr.append(" ");
+        }
+        out.write(indentStr + "<" + elem.tag().toString() + elem.attributes() + ">");
+
+        if (elem.childrenSize() > 0) {
+            out.write(elem.ownText());
+            out.newLine();
+        } else {
+            out.write(elem.html());
+        }
+        
+        for (Element child : elem.children()) {
+            prettyPrint(out, child, indent + 1);
+        }
+        // not everything has a close tag
+        String closeTag = "</" + elem.tagName() + ">";
+        if (elem.outerHtml().contains(closeTag)) {
+            if (elem.childrenSize() > 0) {
+                out.write(indentStr.toString());
+            }
+            out.write(closeTag);
+        }
+        out.newLine();
+    }
 
     public static void markPlaced(String hrefForHorsePage, String optionalDetails) throws IOException {
         // remove from available.html

@@ -131,6 +131,9 @@ public class HorseDetailsRecord {
 
     public JComponent createBioComponent() {
         bio = new JTextArea(10, 70);
+        bio.setWrapStyleWord(true);
+        bio.setFont(CreateListingFrontend.DEFAULT_FONT);
+        bio.setLineWrap(true);
         bio.setBackground(CreateListingFrontend.ADMIN_BACKGROUND);
         JScrollPane scrollBio = new JScrollPane(bio, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);

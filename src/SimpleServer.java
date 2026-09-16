@@ -12,7 +12,7 @@ public class SimpleServer {
         // Configure static file handler (path to your static directory)  
         // For Maven/Gradle: Use "src/main/resources/static"  
         // For plain Java: Use the absolute path (e.g., "/path/to/project/static")  
-        String staticDir = "staging";  
+        String staticDir = "repo";  
         server.createContext("/", new StaticFileHandler(staticDir));  
 
         server.start();  

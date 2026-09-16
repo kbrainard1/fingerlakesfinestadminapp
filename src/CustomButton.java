@@ -18,6 +18,7 @@ public class CustomButton extends JButton {
 
     public static Color normalBg = new Color(200, 220, 250);
     private static Color hoverBg = new Color(160, 180, 250);
+    private static Color clickBg = new Color(120, 140, 250);
     private static Color borderColor = new Color(25, 25, 128);
 
     public interface UnscaledBorderPainter {
@@ -154,7 +155,12 @@ public class CustomButton extends JButton {
 
     @Override
     public void paintComponent(Graphics g) {
-        if (getModel().isRollover()) {
+        if (getModel().isPressed()) {
+            RoundedBorder.paintBorder(g,
+                    0, 0,
+                    getWidth(), getHeight(),
+                    (g2,w,h,s) -> RoundedBorder.paintUnscaledBorder(g2,w,h,s,false,clickBg));
+        } else if (getModel().isRollover()) {
             RoundedBorder.paintBorder(g,
                     0, 0,
                     getWidth(), getHeight(),

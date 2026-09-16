@@ -13,7 +13,7 @@ public class MarkPlacedComponent extends JPanel {
     public MarkPlacedComponent() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         JLabel success = new JLabel();
-        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+       
         JButton markPlaced = new CustomButton("Mark As Placed");
         markPlaced.addActionListener(e -> {
             success.setText("");
@@ -21,13 +21,22 @@ public class MarkPlacedComponent extends JPanel {
 
             CreateListingFrontend.threadPool.submit(() -> {
                 try {
+                    boolean successForAll = true;
                     for (HorseListingComponent comp : horseListings.getSelected()) {
                             MarkPlaced.markPlaced(comp.getHref(), comp.getDetails());
-                            updateFbPost(comp.getHref(), comp.getDetails());
+                            successForAll &= updateFbPost(comp.getTitle(), comp.getDetails());
                     }
-                    success.setText("Success!");
+                    if (successForAll) {
+                        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+                        success.setText("Success!");
+                    } else {
+                        success.setForeground(CreateListingFrontend.ERROR_COLOR);
+                        success.setText("Not all Facebook posts updated");
+                    }
                     horseListings.loadHorses();
                 } catch (Exception e1) {
+                    success.setForeground(CreateListingFrontend.ERROR_COLOR);
+                    success.setText("Unexpected error: " + e1.getMessage());
                     throw new RuntimeException(e1);
                 } finally {
                     CreateListingFrontend.hideSpinner();
@@ -44,8 +53,19 @@ public class MarkPlacedComponent extends JPanel {
         add(horseListings.getComponent(), BorderLayout.CENTER);
     }
 
-    private void updateFbPost(String href, String details) {
-        // TODO Auto-generated method stub
-        
+    private boolean updateFbPost(String title, String details) {
+        try {
+            String horseName = title.substring(0, title.indexOf(","));
+            FbConnector.FbPost post = FbConnector.findPost(horseName);
+            if (post != null) {
+                String currentText = post.contents();
+                currentText = currentText.substring(currentText.indexOf("\n"));
+                String newText = title + "\n" + details + "\n" + currentText;
+                FbConnector.updatePostText(newText, post.id());
+            }
+            return true;
+        } catch (Exception e) {
+           return false;
+        }  
     }
 }

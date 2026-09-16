@@ -79,6 +79,7 @@ public class CreateListing {
         
         writeVideos(page, videoLinks);
         
+        MarkPlaced.writePage(page);
         page.outputSettings(page.outputSettings().prettyPrint(false));
         try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
             out.write(page.outerHtml());
@@ -136,12 +137,12 @@ public class CreateListing {
             String videoId = extractId(video);
             
             String toWrite = 
-                    "        <div class=\"jog_video\">" + System.lineSeparator() +
-                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + videoId + "\""+ System.lineSeparator() +
-                    "                title=\"YouTube video player\" frameborder=\"0\""+ System.lineSeparator() +
-                    "                allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\""+ System.lineSeparator() +
-                    "                referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" + System.lineSeparator() +
-                    "        </div>"  + System.lineSeparator();
+                    "        <div class=\"jog_video\">" +
+                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + videoId + "\""+ 
+                    "                title=\"YouTube video player\" frameborder=\"0\""+ 
+                    "                allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\""+ 
+                    "                referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" + 
+                    "        </div>";
 
             appendAfter.after(toWrite);
         }
@@ -174,22 +175,22 @@ public class CreateListing {
         MarkPlaced.updatePage("available.html", page -> {
             Element titleElem = page.getElementsByTag("h1").get(0);
             String toAdd = 
-                    "    <div class=\"available_snippet_div\">" + System.lineSeparator() +
-                    "        <a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a>" + System.lineSeparator() +
-                    "        <div class=\"available_snippet_inner_div\">" + System.lineSeparator() +
-                    "        <img class=\"snippet_thumb\" src=\"" + thumbPath + "\">" + System.lineSeparator() +
-                    "        <p>" + snippet + System.lineSeparator() +
-                    "        <a href=\"" + pageUrl + "\">Continue Reading...</a></p> " + System.lineSeparator() +
-                    "        </div>" + System.lineSeparator() +
-                    "    </div>" + System.lineSeparator();
+                    "    <div class=\"available_snippet_div\">" +
+                    "        <a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a>" +
+                    "        <div class=\"available_snippet_inner_div\">" +
+                    "        <img class=\"snippet_thumb\" src=\"" + thumbPath + "\">" + 
+                    "        <p>" + snippet + 
+                    "        <a href=\"" + pageUrl + "\">Continue Reading...</a></p> " + 
+                    "        </div>" +
+                    "    </div>";
             titleElem.after(toAdd);
         });
         
         MarkPlaced.updatePage("index.html", page -> {
             page.getElementById("full_available_list").prepend("        <img src=\"" + thumbPath + "\" href=\"" + pageUrl + "\"" +
-                    "            horse_title=\"" + title + "\">" + System.lineSeparator());
+                    "            horse_title=\"" + title + "\">");
             Element ul = page.select(".recent_adds").get(0).getElementsByTag("ul").get(0);
-            ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>" + System.lineSeparator());
+            ul.prepend("<li><a class=\"available_title\" href=\"" + pageUrl + "\">" + title + "</a></li>");
         });
     }
 }

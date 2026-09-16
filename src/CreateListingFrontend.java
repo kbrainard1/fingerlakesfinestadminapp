@@ -45,7 +45,7 @@ public class CreateListingFrontend {
     public static final Font DEFAULT_FONT = Font.decode("Arial");
     public static final Color ERROR_COLOR = new Color(160, 0, 0);
     public static final Color ADMIN_BACKGROUND = new Color(240, 240, 240);
-    public static final int OVERALL_WIDTH = 800;
+    public static final int OVERALL_WIDTH = 850;
     public static final Color SUCCESS_COLOR = new Color(0, 180, 0);
 
     public static void main(String[] args) throws Exception {
@@ -88,10 +88,6 @@ public class CreateListingFrontend {
                 fillerPanel.setPreferredSize(new Dimension(OVERALL_WIDTH, OVERALL_WIDTH));
                 fillerPanel.setBorder(new MatteBorder(1, 0, 0, 0, Color.BLACK));
                 fillerPanel.setBackground(Color.WHITE);
-                fillerPanel.setLayout(new FlowLayout());
-                JLabel githubLogin = new JLabel("Logging in to GitHub...");
-                githubLogin.setFont(DEFAULT_FONT.deriveFont(48f));
-                fillerPanel.add(githubLogin);
                 mainLayer.add(fillerPanel, BorderLayout.CENTER);
                 mainLayer.setBounds(0, 0, OVERALL_WIDTH, OVERALL_WIDTH);
 

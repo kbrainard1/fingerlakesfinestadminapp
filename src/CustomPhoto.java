@@ -8,11 +8,16 @@ import java.awt.Image;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.io.IOException;
 
 import javax.swing.JLabel;
 import javax.swing.border.LineBorder;
 
 public class CustomPhoto extends JLabel {
+    
+    public static interface ImageLoader {
+        Image loadImage() throws IOException;
+    }
 
     protected static final int CLOSE_SIZE = 15;
     
@@ -23,10 +28,19 @@ public class CustomPhoto extends JLabel {
     private String fileName;
     private Color border = null;
     
-    public CustomPhoto(Image img, String fileName) {
-        this.img = img;
+    public CustomPhoto(ImageLoader imgLoader, String fileName) {
+        CreateListingFrontend.threadPool.submit(() -> {
+            Image image;
+            try {
+                image = imgLoader.loadImage();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            this.img = image;
+            repaint();
+        });
         this.fileName = fileName;
-        setPreferredSize(new Dimension(100, 100));
+        setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setVerticalAlignment(JLabel.BOTTOM);
         setHorizontalAlignment(JLabel.CENTER);
        
@@ -127,12 +141,17 @@ public class CustomPhoto extends JLabel {
                 border = null;
             }
         }
-       
-        g.drawImage(img, 0, 0, null);
+        
+        if (img != null) {
+            g.drawImage(img, 0, 0, null);
+        } else {
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, getEffectiveWidth(), getEffectiveHeight());
+        }
         if (firstPhoto) {
             int textHeight = 17;
             g.setColor(Color.WHITE);
-            g.fillRect(0, getEffectiveHeight() - textHeight, img.getWidth(null), textHeight);
+            g.fillRect(0, getEffectiveHeight() - textHeight, WIDTH, textHeight);
             g.setColor(Color.BLACK);
             g.setFont(new Font("Arial", Font.BOLD, 12));
             
@@ -144,11 +163,11 @@ public class CustomPhoto extends JLabel {
     }
     
     private int getEffectiveWidth() {
-        return Math.min(getWidth(), img.getWidth(null));
+        return Math.min(getWidth(), WIDTH);
     }
     
     private int getEffectiveHeight() {
-        return Math.min(getHeight(), img.getHeight(null));
+        return Math.min(getHeight(), HEIGHT);
     }
     
     private void drawClose(Graphics g) {
@@ -173,10 +192,6 @@ public class CustomPhoto extends JLabel {
 
     public String getFileName() {
         return fileName;
-    }
-
-    public Image getImage() {
-        return img;
     }
 
 }

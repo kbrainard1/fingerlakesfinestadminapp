@@ -1,5 +1,6 @@
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -49,8 +50,6 @@ public class AddHorseDetailed extends AddHorseShared {
 
         horseData = new HorseDetailsRecord();
         add(horseData.createStatsComponent(), BorderLayout.CENTER);
-
-        // then enter bio, photos, and videos
     }
 
 
@@ -63,17 +62,17 @@ public class AddHorseDetailed extends AddHorseShared {
         
         header.add(next);
         JLabel success = new JLabel();
-        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+        success.setForeground(CreateListingFrontend.ERROR_COLOR);
         header.add(success);
         next.addActionListener(e -> {
-
+            success.setText("");
             CreateListingFrontend.showSpinner();
 
             CreateListingFrontend.threadPool.submit(() -> {
                 try {
                     List<String> imageFiles = photosPanel.prepImageFiles();
 
-                    List<String> bioPlusBoilerplate = Arrays.asList(horseData.getBio().split("\n"));
+                    List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
                     bioPlusBoilerplate.add(horseData.getContact());
                     bioPlusBoilerplate.add(horseData.getPrice());
                     bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
@@ -84,9 +83,10 @@ public class AddHorseDetailed extends AddHorseShared {
                     CreateListing.createListingPage(horseData.getName(), title, "profile.jpg",
                             imageFiles, horseData.getEquibase(), horseData.getPedigree(), videoLinks,
                             bioPlusBoilerplate);
-                    success.setText("Success! Click 'Deploy Changes' to preview and publish the new page");
-                    createFbPost();
+                    
+                    showSuccess();
                 } catch (Exception e1) {
+                    success.setText("Unexpected error: " + e1.getMessage());
                     throw new RuntimeException(e1);
                 } finally {
                     CreateListingFrontend.hideSpinner();
@@ -111,9 +111,65 @@ public class AddHorseDetailed extends AddHorseShared {
         repaint();
     }
 
-    private void createFbPost() {
-        // TODO Auto-generated method stub
+    private void showSuccess() {
+        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.CENTER));
+        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.NORTH));
         
+        String shortNameBuilder = "";
+        for (int i = 0; i < horseData.getName().length(); i++) {
+            if (Character.isLetter(horseData.getName().charAt(i))) {
+                shortNameBuilder += Character.toLowerCase(horseData.getName().charAt(i));
+            }
+        }
+        String shortName = shortNameBuilder;
+        String pageUrl = "horsePages/" + shortName + ".html";
+        
+        add(new SuccessHorseComponent(pageUrl, new SuccessHorseComponent.FacebookCallback() {
+            
+            @Override
+            public void postToFb() {
+                createFbPost();
+            }
+            
+            @Override
+            public String getButtonText() {
+                return "Create Facebook Post";
+            }
+        }), BorderLayout.CENTER);
+        
+    }
+
+
+    private void createFbPost() {
+        String text = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
+        text += "\n";
+        text += "\n";
+        
+        text += horseData.getBio();
+        text += "\n";
+        text += horseData.getContact();
+        text += "\n";
+        text += horseData.getPrice();
+        text += "\n";
+        
+        text += "Race Record: " + horseData.getEquibase();
+        text += "\n";
+        text += "Pedigree: " + horseData.getPedigree();
+        text += "\n";
+        
+        List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
+        for (String video : videoLinks) {
+            text += "Video: " + video + "\n";
+        }
+        
+        text += "A PPE is always recommended. For information about vet practices available to do PPEs, and other important "
+                + "information about the buying process, please see the How to Buy page on our website.";
+        
+        try {
+            FbConnector.createPagePost(text, photosPanel.getImageFilenames());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }   
     }
 
 

@@ -2,14 +2,13 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -35,6 +34,7 @@ public class EditHorseComponent extends JPanel {
     private VideoPanel videos;
     private PhotosPanel photos;
     private Document htmlDoc;
+    private Set<String> prevImages = new HashSet<>();
 
     public EditHorseComponent() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
@@ -48,7 +48,6 @@ public class EditHorseComponent extends JPanel {
                          // Just edit the first one
                          editHorse(comp.getHref());
                     }
-                    horses.loadHorses();
                 } catch (Exception e1) {
                     throw new RuntimeException(e1);
                 } finally {
@@ -101,16 +100,11 @@ public class EditHorseComponent extends JPanel {
                     
                     writeVideos();
                     
-                    htmlDoc.outputSettings(htmlDoc.outputSettings().prettyPrint(false));
-                    try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
-                        out.write(htmlDoc.outerHtml());
-                        out.newLine();
-                    }
+                    MarkPlaced.writePage(htmlDoc);
                    GithubConnector.commitChange(horsePage, "temp.html");
 
                    updateAvailablePage(horsePage, bioInfo);  
-                   success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-                   success.setText("Success! Click 'Deploy Changes' to preview and publish the changes");
+                   showSuccess(horsePage);
                 } catch (Exception e1) {
                     success.setForeground(CreateListingFrontend.ERROR_COLOR);
                     success.setText(e1.getMessage());
@@ -134,15 +128,24 @@ public class EditHorseComponent extends JPanel {
         
         addBio(center, titleElem);
 
-        photos = new PhotosPanel();
-        List<File> files;
-        try {
-            files = GithubConnector.getImageDirectory(horsePage.replace(".html", "_files/"));
-            sort(files, htmlDoc.getElementById("image_gallery_full"));
-        } catch (IOException e1) {
-            throw new RuntimeException(e1);
-        }
-        photos.addFiles(files);
+        photos = new PhotosPanel("Loading...");
+        CreateListingFrontend.threadPool.submit(() -> {
+            List<File> files;
+            try {
+                Element imageGallery = htmlDoc.getElementById("image_gallery_full");
+                files = GithubConnector.getImageDirectory(horsePage.replace(".html", "_files/"));
+                // Don't include any photos that were previously removed, or the profile thumbnail 
+                // (which will slowly degrade the quality)
+                files = files.stream().filter(file -> getIndex(file, imageGallery) >= 0)
+                        .sorted((image1, image2) -> Integer.compare(getIndex(image1, imageGallery), getIndex(image2, imageGallery)))
+                        .toList();
+            } catch (IOException e1) {
+                throw new RuntimeException(e1);
+            }
+
+            photos.addFiles(files);
+            prevImages.addAll(photos.getImageFilenames());
+        });
         center.add(photos.getPhotosComponent());
         
         List<String> urls = new ArrayList<>();
@@ -151,39 +154,103 @@ public class EditHorseComponent extends JPanel {
         }
         videos = new VideoPanel(urls);
         center.add(videos);
-        
         add(center, BorderLayout.CENTER);
         
         revalidate();
         repaint();
     }
 
+    private void showSuccess(String horsePage) {
+        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.CENTER));
+        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.NORTH));
+        
+        add(new SuccessHorseComponent(horsePage, new SuccessHorseComponent.FacebookCallback() {
+            
+            @Override
+            public void postToFb() {
+                updateFbPost();
+            }
+            
+            @Override
+            public String getButtonText() {
+                return "Update/Create Facebook Post";
+            }
+        }), BorderLayout.CENTER);
+        
+    }
+
+    protected void updateFbPost() {
+        String text = title.getText();
+        text += "\n";
+        text += "\n";
+        
+        text += removeHrefs(bio.getText());
+        text += "\n";
+        
+        List<String> videoLinks = videos.getYoutubeLinks();
+        for (String video : videoLinks) {
+            text += "Video: " + video + "\n";
+        }
+        
+        try {
+            String horseName = title.getText().substring(0, title.getText().indexOf(","));
+            String postId = FbConnector.findPost(horseName).id();
+            if (postId == null) {
+                FbConnector.createPagePost(text, photos.getImageFilenames());
+            } else {
+                // Open question: do we need to be able to edit the photos?
+                // For now, let's say no
+                FbConnector.updatePostText(text, postId);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }   
+    }
+
+    private String removeHrefs(String text) {
+        String openTag = "<a ";
+        String closeTag = "</a>";
+        int startIndex = text.indexOf(openTag);
+        while (startIndex >= 0) {
+            int hrefIndex = text.indexOf("href", startIndex) + 6;
+            int hrefEnd = text.indexOf("\"", hrefIndex);
+            int textStart = text.indexOf(">", startIndex);
+            int endIndex = text.indexOf(closeTag, startIndex);
+            text = text.substring(0, startIndex) + 
+                    text.substring(textStart, endIndex) + ": " +
+                    text.substring(hrefIndex, hrefEnd) +
+                    text.substring(endIndex + 4);
+            startIndex = text.indexOf(openTag);
+        }
+        
+        return text;
+    }
+
     private void writeVideos() {
         Element appendAfter = htmlDoc.getElementById("gallery_dot_progress");
         
-        for (Element elem : htmlDoc.getElementsByClass("jog_video")) {
-            elem.remove();
+        while (true) {
+            Elements jogVideos = htmlDoc.getElementsByClass("jog_video");
+            if (jogVideos.isEmpty()) {
+                break;
+            }
+            jogVideos.get(0).remove();
         }
+        
         for (String video : videos.getYoutubeLinks()) {
             String videoId = CreateListing.extractId(video);
             
-            String toWrite = 
-                    "        <div class=\"jog_video\">" + System.lineSeparator() +
-                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + videoId + "\""+ System.lineSeparator() +
-                    "                title=\"YouTube video player\" frameborder=\"0\""+ System.lineSeparator() +
-                    "                allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\""+ System.lineSeparator() +
-                    "                referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" + System.lineSeparator() +
-                    "        </div>"  + System.lineSeparator();
+            String toWrite = "        <div class=\"jog_video\">" + 
+                    "            <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/" + videoId + "\""+ 
+                    "                title=\"YouTube video player\" frameborder=\"0\""+ 
+                    "                allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\""+ 
+                    "                referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" + 
+                    "        </div>";
 
             appendAfter.after(toWrite);
         }
     }
 
-    private void sort(List<File> images, Element imageGallery) {
-        Collections.sort(images, (image1, image2) -> {
-            return Integer.compare(getIndex(image1, imageGallery), getIndex(image2, imageGallery));
-        });
-    }
 
     private int getIndex(File f, Element imageGallery) {
         String name = f.getPath().substring(f.getPath().lastIndexOf(File.separator) + 1);
@@ -199,9 +266,9 @@ public class EditHorseComponent extends JPanel {
     private void updateImages(String horsePage) throws IOException {
         String imageFilePrefix = horsePage.replace(".html", "_files/");
         // Update images - profile pic can change, support that
-        GithubConnector.commitChange(imageFilePrefix + "profile.jpg", "profile.jpg");
-   
         List<String> imageFiles = photos.prepImageFiles();
+        GithubConnector.commitChange(imageFilePrefix + "profile.jpg", "profile.jpg");
+        
         Element imageGallery = htmlDoc.getElementById("image_gallery_full");
         // clear previous images
         while (imageGallery.childrenSize() > 0) {
@@ -211,7 +278,9 @@ public class EditHorseComponent extends JPanel {
             String image = fullPath.substring(fullPath.lastIndexOf(File.separator) + 1);
             // no-op if image already there - this does mean we don't support name swapping of local image files,
             // but that seems fine
-            GithubConnector.commitNew(imageFilePrefix + image, fullPath); 
+            if (!prevImages.contains(fullPath)) {
+                GithubConnector.commitNew(imageFilePrefix + image, fullPath); 
+            }
             imageGallery.append( "<img src=\"../" + imageFilePrefix + image + "\" full_size=\"../" + imageFilePrefix + image + "\">");
         }
     }
@@ -225,8 +294,7 @@ public class EditHorseComponent extends JPanel {
                        for (Element sib : elem.siblingElements()) {
                            if (sib.tag().getName().equalsIgnoreCase("div")) {
                                sib.getElementsByTag("p").get(0).html(snippet 
-                                       +  System.lineSeparator() +
-                                       "        <a href=\"" + horsePage + "\">Continue Reading...</a>");
+                                       +  "<a href=\"" + horsePage + "\">Continue Reading...</a>");
                            }
                        }
                    }

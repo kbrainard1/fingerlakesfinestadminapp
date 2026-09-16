@@ -9,6 +9,6 @@ public abstract class AddHorseShared extends JPanel {
 
     public AddHorseShared() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
-        photosPanel = new PhotosPanel();
+        photosPanel = new PhotosPanel("");
     }
 }

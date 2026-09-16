@@ -1,6 +1,7 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
+import java.awt.Font;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
@@ -26,10 +27,18 @@ public class PreviewDeployComponent extends JPanel {
         
         JLabel success = new JLabel();
         success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+        success.setFont(CreateListingFrontend.DEFAULT_FONT.deriveFont(Font.BOLD));
         JButton deploy = new CustomButton("Looks good, deploy site!");
         deploy.addActionListener(e -> {
-            GithubConnector.mergeStaging();
-            success.setText("Successfully Deployed Site");
+            CreateListingFrontend.showSpinner();
+            CreateListingFrontend.threadPool.submit(() -> {
+                try {
+                    GithubConnector.mergeStaging();
+                    success.setText("Successfully Deployed Site");
+                } finally {
+                    CreateListingFrontend.hideSpinner();
+                }
+            });
         });
         
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
