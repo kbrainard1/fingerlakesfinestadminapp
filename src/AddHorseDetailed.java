@@ -3,6 +3,7 @@ import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -18,27 +19,12 @@ public class AddHorseDetailed extends AddHorseShared {
 
     public AddHorseDetailed() {
         setLayout(new BorderLayout());
-        EquibaseConnector.precacheConnection();
 
-        JLabel firstPageLabel = new JLabel("First, enter the horse stats");
+        JLabel firstPageLabel = new JLabel("First, enter the basic info:");
         firstPageLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
         JPanel header = CreateListingFrontend.wrapButton(firstPageLabel);
-
+        header.add(new JLabel("                                                                            "));
         // enter stats
-        JButton autofill = new CustomButton("Auto-fill based on name");
-        autofill.addActionListener(e -> {
-            if (!horseData.getName().isBlank()) {
-                CreateListingFrontend.showSpinner();
-                CreateListingFrontend.threadPool.submit(() -> {
-                    try {
-                        attemptToFill(horseData.getName());
-                    } finally {
-                        CreateListingFrontend.hideSpinner();
-                    }
-                });
-            }
-        });
-        header.add(CreateListingFrontend.wrapButton(autofill));
         JButton next = new CustomButton("Next - Add Details");
         header.add(next);
         next.addActionListener(e -> {
@@ -49,7 +35,15 @@ public class AddHorseDetailed extends AddHorseShared {
         add(header, BorderLayout.NORTH);
 
         horseData = new HorseDetailsRecord();
-        add(horseData.createStatsComponent(), BorderLayout.CENTER);
+        add(horseData.createStatsComponent(name -> {
+            try {
+                attemptToFill(name);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+            
+        }), BorderLayout.CENTER);
     }
 
 
@@ -61,36 +55,26 @@ public class AddHorseDetailed extends AddHorseShared {
         JPanel header = CreateListingFrontend.wrapButton(next);
         
         header.add(next);
-        JLabel success = new JLabel();
-        success.setForeground(CreateListingFrontend.ERROR_COLOR);
+        StatusLabel success = new StatusLabel();
         header.add(success);
         next.addActionListener(e -> {
-            success.setText("");
-            CreateListingFrontend.showSpinner();
+            CreateListingFrontend.runWithSpinner(success, () -> {
+                List<String> imageFiles = photosPanel.getImageFilenames();
+                Future<String> thumnail = photosPanel.prepThumbnail();
 
-            CreateListingFrontend.threadPool.submit(() -> {
-                try {
-                    List<String> imageFiles = photosPanel.prepImageFiles();
+                List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
+                bioPlusBoilerplate.add(horseData.getContact());
+                bioPlusBoilerplate.add(horseData.getPrice());
+                bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
+                        + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
 
-                    List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
-                    bioPlusBoilerplate.add(horseData.getContact());
-                    bioPlusBoilerplate.add(horseData.getPrice());
-                    bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
-                            + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
+                List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
+                String title = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
+                CreateListing.createListingPage(horseData.getName(), title, thumnail,
+                        imageFiles, horseData.getEquibase(), horseData.getPedigree(), videoLinks,
+                        bioPlusBoilerplate);
 
-                    List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
-                    String title = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
-                    CreateListing.createListingPage(horseData.getName(), title, "profile.jpg",
-                            imageFiles, horseData.getEquibase(), horseData.getPedigree(), videoLinks,
-                            bioPlusBoilerplate);
-                    
-                    showSuccess();
-                } catch (Exception e1) {
-                    success.setText("Unexpected error: " + e1.getMessage());
-                    throw new RuntimeException(e1);
-                } finally {
-                    CreateListingFrontend.hideSpinner();
-                }
+                showSuccess();
             });
         });
         add(header, BorderLayout.NORTH);

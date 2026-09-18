@@ -1,7 +1,15 @@
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -19,29 +27,140 @@ public class HorseDetailsRecord {
     private DataFieldComponent equibaseLink;
     private DataFieldComponent pedigreeLink;
     private VideoPanel videos;
+    private Future<Boolean> autofillResult;
+    private JLabel loading;
+    
+    public static interface AutofillCallback {
+        public boolean autofill(String name);
+    }
 
-    public JPanel createStatsComponent() {
+    public JPanel createStatsComponent(AutofillCallback autofillCallack) {
         JPanel center = new JPanel();
-        center.setLayout(new GridLayout(0, 1));
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
         name = new DataFieldComponent("Horse Name");
-        center.add(name);
-        year = new DataFieldComponent("Year");
-        center.add(year);
-        color = new DataFieldComponent("Color");
-        center.add(color);
-        sex = new DataFieldComponent("Sex");
-        center.add(sex);
+        name.enable();
+        
+        JButton autofill = new CustomButton("Next");
+        autofill.addActionListener(e -> {
+            runAutofill(autofillCallack, autofill);
+        });
+        name.onEnter(() -> runAutofill(autofillCallack, autofill));
+        JPanel autofillPanel = CreateListingFrontend.wrapButton(name, new FlowLayout(FlowLayout.LEFT));
+        autofillPanel.add(autofill);
+        autofillPanel.setBackground(null);
+        center.add(autofillPanel);
+        
+        JPanel manualFields = new JPanel();
+        manualFields.setLayout(new GridLayout(0, 1));
         height = new DataFieldComponent("Height");
-        center.add(height);
+        manualFields.add(height);
         price = new DataFieldComponent("Price");
-        center.add(price);
+        manualFields.add(price);
         contact = new DataFieldComponent("Contact Info");
-        center.add(contact);
+        manualFields.add(contact);
+        addSpacer(manualFields);
+        addSpacer(manualFields);
+        addSpacer(manualFields);
+        center.add(manualFields);
+        
+        
+        JPanel autofillableFields = new JPanel();
+        autofillableFields.setLayout(new GridLayout(0, 1));
+        year = new DataFieldComponent("Year");
+        autofillableFields.add(year);
+        color = new DataFieldComponent("Color");
+        autofillableFields.add(color);
+        sex = new DataFieldComponent("Sex");
+        autofillableFields.add(sex);
         equibaseLink = new DataFieldComponent("Equibase link");
-        center.add(equibaseLink);
+        autofillableFields.add(equibaseLink);
         pedigreeLink = new DataFieldComponent("Pedigree link");
-        center.add(pedigreeLink);
+        autofillableFields.add(pedigreeLink);
+        addSpacer(autofillableFields);
+        addSpacer(autofillableFields);
+        addSpacer(autofillableFields);
+        
+        loading = new JLabel();
+        loading.setFont(CreateListingFrontend.DEFAULT_FONT.deriveFont(24f));
+        loading.setHorizontalAlignment(JLabel.CENTER);
+        loading.setVerticalAlignment(JLabel.TOP);
+        
+        JPanel combined = new JPanel();
+        combined.setLayout(new GridLayout(1, 0));
+        combined.add(autofillableFields);
+        combined.add(loading);
+        
+        center.add(combined);
+       
         return center;
+    }
+
+    private void runAutofill(AutofillCallback autofillCallack, JButton autofill) {
+        autofillResult = CreateListingFrontend.threadPool.submit(() -> {
+            return autofillCallack.autofill(getName());
+        });
+        CreateListingFrontend.threadPool.submit(() -> {
+            DataFieldComponent[] comps = new DataFieldComponent[] {
+                    year,
+                    color, 
+                    sex,
+                    equibaseLink,
+                    pedigreeLink,
+                    name
+            };
+            autofill.setEnabled(false);
+            try {
+                
+                for (DataFieldComponent comp : comps) {
+                    comp.disable();
+                }
+                loading.setForeground(Color.BLACK);
+                while (true) {
+                    // Update the spinner
+                    long timeBox = (System.currentTimeMillis() / 1000) % 3;
+                    String text = "Loading";
+                    for (int i = 0; i <= timeBox; i++) {
+                        text += ".";
+                    }
+                    loading.setText(text);
+                    
+                    // Check for results
+                    try {
+                        boolean success = autofillResult.get(1, TimeUnit.SECONDS);
+                        if (!success) {
+                            loading.setForeground(StatusLabel.ERROR_COLOR);
+                            loading.setText("No match found, check horse name");
+                        } else {
+                            loading.setForeground(StatusLabel.SUCCESS_COLOR);
+                            loading.setText("Auto-fill Complete");
+                        }
+                        break;
+                    } catch (TimeoutException e1) {
+                        // that's ok, update the spinner again
+                    } catch (Exception e1) {
+                        loading.setForeground(StatusLabel.ERROR_COLOR);
+                        loading.setText("Auto-fill failed");
+                        break;
+                    }
+                    
+
+                }
+            } finally {
+                for (DataFieldComponent comp : comps) {
+                    comp.enable();
+                }
+                autofill.setEnabled(true);
+                autofill.setText("Autofill");
+            }
+        });
+        height.enable();
+        height.focus();
+        price.enable();
+        contact.enable();
+    }
+
+    private void addSpacer(JPanel center) {
+        center.add(new JLabel(""));
     }
 
     public String getName() {
@@ -58,12 +177,12 @@ public class HorseDetailsRecord {
     
     public boolean validateStats() {
         return validate(name) &&
-                validate(year) &&
-                validate(sex) &&
-                validate(color) &&
                 validate(height) &&
                 validate(contact) &&
                 validate(price) &&
+                validate(year) &&
+                validate(sex) &&
+                validate(color) &&
                 validate(equibaseLink) &&
                 validate(pedigreeLink);
     }

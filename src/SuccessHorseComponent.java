@@ -1,6 +1,7 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
+import java.awt.Dimension;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
@@ -19,17 +20,18 @@ public class SuccessHorseComponent extends JPanel {
     public SuccessHorseComponent(String horsePage, FacebookCallback fb) {
         setLayout(new BorderLayout());
         JLabel success = new JLabel("Success!");
-        success.setFont(CreateListingFrontend.DEFAULT_FONT.deriveFont(24f));
-        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
+        success.setFont(CreateListingFrontend.DEFAULT_FONT.deriveFont(36f));
+        success.setVerticalAlignment(JLabel.BOTTOM);
+        success.setPreferredSize(new Dimension(200, 100));
+        success.setForeground(StatusLabel.SUCCESS_COLOR);
         add(CreateListingFrontend.wrapButton(success), BorderLayout.NORTH);
         
-        JLabel status = new JLabel();
-        status.setFont(CreateListingFrontend.DEFAULT_FONT);
+        StatusLabel status = new StatusLabel();
         
-        JButton preview = new CustomButton("Preview changes in browser");
+        JButton preview = new CustomButton("Preview Webpage");
         preview.addActionListener(e -> {
-            status.setText("");
-            GithubConnector.cloneStaging();
+            status.reset();
+            GithubConnector.updateFromRemote();
             
             try {
                 // otherwise the embedded youtube videos don't have a valid referrer
@@ -39,32 +41,31 @@ public class SuccessHorseComponent extends JPanel {
             }
         });
         
+        JButton back = new CustomButton("Edit Horse Info");
+        back.addActionListener(e -> {
+            CreateListingFrontend.swapInComponent(new EditHorseComponent(horsePage));
+        });
         
-        
-        JButton deploy = new CustomButton("Looks good, deploy to website!");
+        JButton deploy = new CustomButton("Looks Good, Publish to Site!");
         deploy.addActionListener(e -> {
-            status.setText("");
-            GithubConnector.mergeStaging();
-            status.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-            status.setText("Successfully Deployed Site");
+            CreateListingFrontend.runWithSpinner(status, () -> {
+                GithubConnector.mergeStaging();
+                status.setSuccess("Successfully Published Site");
+            });
         });
         
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         JPanel wrapButton = CreateListingFrontend.wrapButton(preview);
+        wrapButton.add(back);
         wrapButton.add(deploy);
         
         
         JButton facebookAction = new CustomButton(fb.getButtonText());
         facebookAction.addActionListener(e -> {
-            status.setText("");
-            try {
+            CreateListingFrontend.runWithSpinner(status, () -> {
                 fb.postToFb();
-                status.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-                status.setText("Successfully posted to Facebook");
-            } catch (Exception e1) {
-                status.setForeground(CreateListingFrontend.ERROR_COLOR);
-                status.setText("Unexpected error posting to Facebook " + e1.getMessage());
-            }
+                status.setSuccess("Successfully posted to Facebook");
+            });
         });
         wrapButton.add(facebookAction);
         

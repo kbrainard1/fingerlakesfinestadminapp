@@ -72,49 +72,18 @@ public class EquibaseConnector {
     }
 
     public static record HorsePage(String url, String contents) {}
-
-    private static WebDriver preCachedDriver;
-    
-    public static synchronized void precacheConnection() {
-        CreateListingFrontend.threadPool.submit(() -> {
-            synchronousCacheDriver();
-        });
-        
-        CreateListingFrontend.threadPool.submit(() -> {
-            try {
-                Thread.sleep(30 * 1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            cleanUpCachedConnection();
-        });
-    }
-    
-    private static synchronized void synchronousCacheDriver() {
-        if (preCachedDriver == null) {
-            preCachedDriver = makeDriver();
-            preCachedDriver.get("https://www.equibase.com");
-        }
-    }
-
-    private static synchronized void cleanUpCachedConnection() {
-        if (preCachedDriver != null) {
-            preCachedDriver.quit();
-            preCachedDriver = null;
-        }
-    }
     
     public static synchronized HorsePage loadHorsePage(String horse) {
-        synchronousCacheDriver(); // no-op if already cached
+        WebDriver driver = makeDriver();
         try {
-            navigateToHorsePage(horse, preCachedDriver);
-            return new HorsePage(preCachedDriver.getCurrentUrl(), preCachedDriver.getPageSource());
+            driver.get("https://www.equibase.com");
+            navigateToHorsePage(horse, driver);
+            return new HorsePage(driver.getCurrentUrl(), driver.getPageSource());
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         } finally {
-            preCachedDriver.quit();
-            preCachedDriver = null;
+            driver.quit();
         }
     }
 }

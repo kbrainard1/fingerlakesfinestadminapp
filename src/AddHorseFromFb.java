@@ -5,6 +5,7 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -14,7 +15,7 @@ import javax.swing.border.LineBorder;
 
 public class AddHorseFromFb extends AddHorseShared {
     private JTextArea fbPost;
-    private JLabel errorMessage;
+    private StatusLabel errorMessage;
 
     public AddHorseFromFb() {
         fbPost = new JTextArea(100, 100);
@@ -53,38 +54,27 @@ public class AddHorseFromFb extends AddHorseShared {
         add(photosPanel.getPhotosComponent(), BorderLayout.SOUTH);
 
         JButton createListing = new CustomButton("Done - Add Horse To Website");
-        errorMessage = new JLabel();
-        errorMessage.setFont(CreateListingFrontend.DEFAULT_FONT);
+        errorMessage = new StatusLabel();
         createListing.addActionListener(e -> {
             if (!photosPanel.hasPhoto()) {
-                errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
-                errorMessage.setText("Must have at least one photo!");
+                errorMessage.setError("Must have at least one photo!");
                 return;
             }
             if (fbPost.getText().isBlank()) {
-                errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
-                errorMessage.setText("Must have some text from the FB post!");
+                errorMessage.setError("Must have some text from the FB post!");
                 return;
             }
-            errorMessage.setText("");
 
-            CreateListingFrontend.showSpinner();
-
-            CreateListingFrontend.threadPool.submit(() -> {
+            CreateListingFrontend.runWithSpinner(errorMessage, () -> {
                 boolean created = false;
                 try {
                     List<String> fbPostData = Arrays.asList(fbPost.getText().split("\n"));
-                    List<String> imageFiles = photosPanel.prepImageFiles();
-                    
-                    created = CreateListing.createListingPage(fbPostData, "profile.jpg", imageFiles);
-                } catch (Exception e1) {
-                    throw new RuntimeException(e1);
+                    List<String> imageFiles = photosPanel.getImageFilenames();
+                    Future<String> thumbnail = photosPanel.prepThumbnail();
+
+                    created = CreateListing.createListingPage(fbPostData, thumbnail, imageFiles);
                 } finally {
-                    try {
-                        showSuccess(created);
-                    } finally {
-                        CreateListingFrontend.hideSpinner();
-                    }
+                    showSuccess(created);
                 }
             });
         });
@@ -95,11 +85,9 @@ public class AddHorseFromFb extends AddHorseShared {
 
     private void showSuccess(boolean success) {
         if (!success) {
-            errorMessage.setForeground(CreateListingFrontend.ERROR_COLOR);
-            errorMessage.setText("Unexpected error! Possibly a duplicate listing, check the preview under 'Deploy Changes'");
+            errorMessage.setError("Unexpected error! Possibly a duplicate listing");
         } else {
-            errorMessage.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-            errorMessage.setText("Success! Click 'Deploy Changes' to preview and publish the new page");
+            errorMessage.setSuccess("Success! Click 'Publish Changes' to preview and publish the new page");
         }
     }
     

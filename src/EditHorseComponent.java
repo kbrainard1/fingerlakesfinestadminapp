@@ -1,5 +1,6 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.io.File;
@@ -20,7 +21,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -35,23 +35,16 @@ public class EditHorseComponent extends JPanel {
     private PhotosPanel photos;
     private Document htmlDoc;
     private Set<String> prevImages = new HashSet<>();
+    private String prevProfile;
 
     public EditHorseComponent() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         JButton markPlaced = new CustomButton("Edit Horse");
         markPlaced.addActionListener(e -> {
-            CreateListingFrontend.showSpinner();
-
-            CreateListingFrontend.threadPool.submit(() -> {
-                try {
-                    for (EditHorseListingComponent comp : horses.getSelected()) {
-                         // Just edit the first one
-                         editHorse(comp.getHref());
-                    }
-                } catch (Exception e1) {
-                    throw new RuntimeException(e1);
-                } finally {
-                    CreateListingFrontend.hideSpinner();
+            CreateListingFrontend.runWithSpinner(() -> {
+                for (EditHorseListingComponent comp : horses.getSelected()) {
+                    // Just edit the first one
+                    editHorse(comp.getHref());
                 }
             });
 
@@ -72,46 +65,48 @@ public class EditHorseComponent extends JPanel {
         };
         add(horses.getComponent(), BorderLayout.CENTER);
     }
+    
+    public EditHorseComponent(String horsePage) {
+        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
+        setLayout(new BorderLayout());
+        editHorse(horsePage);
+    }
 
     private void editHorse(String horsePage) {
-        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.CENTER));
-        remove(((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.NORTH));
+        Component centerComp = ((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.CENTER);
+        if (centerComp != null) {
+            remove(centerComp);
+        }
+        
+        Component northComp = ((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.NORTH);
+        if (northComp != null) {
+            remove(northComp);
+        }
 
         JButton next = new CustomButton("Update Horse Webpage");
         JPanel header = CreateListingFrontend.wrapButton(next);
-        JLabel success = new JLabel();
-        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-        success.setFont(CreateListingFrontend.DEFAULT_FONT);
+        StatusLabel success = new StatusLabel();
         header.add(success);
         next.addActionListener(e -> {
-            success.setText("");
-            CreateListingFrontend.showSpinner();
+            CreateListingFrontend.runWithSpinner(success, () -> {
+                Element titleElem = htmlDoc.getElementsByTag("h1").get(0);
+                updateTitle(horsePage, titleElem);
 
-            CreateListingFrontend.threadPool.submit(() -> {
-                try {
-                    
-                    Element titleElem = htmlDoc.getElementsByTag("h1").get(0);
-                    updateTitle(horsePage, titleElem);
+                List<String> bioInfo = Arrays.asList(bio.getText().split(System.lineSeparator()));
+                updatePageText(titleElem, bioInfo);
 
-                    List<String> bioInfo = Arrays.asList(bio.getText().split(System.lineSeparator()));
-                    updatePageText(titleElem, bioInfo);
+                updateImages(horsePage);
 
-                    updateImages(horsePage);
-                    
-                    writeVideos();
-                    
-                    MarkPlaced.writePage(htmlDoc);
-                   GithubConnector.commitChange(horsePage, "temp.html");
+                writeVideos();
 
-                   updateAvailablePage(horsePage, bioInfo);  
-                   showSuccess(horsePage);
-                } catch (Exception e1) {
-                    success.setForeground(CreateListingFrontend.ERROR_COLOR);
-                    success.setText(e1.getMessage());
-                    throw new RuntimeException(e1);
-                } finally {
-                    CreateListingFrontend.hideSpinner();
-                }
+                MarkPlaced.writePage(htmlDoc);
+                GithubConnector.editFile(horsePage, "temp.html");
+
+                updateAvailablePage(horsePage, bioInfo);
+
+                GithubConnector.commitAndPush();
+
+                showSuccess(horsePage);
             });
         });
         add(header, BorderLayout.NORTH);
@@ -119,7 +114,7 @@ public class EditHorseComponent extends JPanel {
         JPanel center = new JPanel();
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
         try {
-            htmlDoc = Jsoup.parse(GithubConnector.getString(GithubConnector.getRetriably(horsePage)));
+            htmlDoc = GithubConnector.getHtmlFile(horsePage);
         } catch (IOException e1) {
             throw new RuntimeException(e1);
         }
@@ -145,6 +140,7 @@ public class EditHorseComponent extends JPanel {
 
             photos.addFiles(files);
             prevImages.addAll(photos.getImageFilenames());
+            prevProfile = photos.getImageFilenames().get(0);
         });
         center.add(photos.getPhotosComponent());
         
@@ -265,9 +261,17 @@ public class EditHorseComponent extends JPanel {
 
     private void updateImages(String horsePage) throws IOException {
         String imageFilePrefix = horsePage.replace(".html", "_files/");
-        // Update images - profile pic can change, support that
-        List<String> imageFiles = photos.prepImageFiles();
-        GithubConnector.commitChange(imageFilePrefix + "profile.jpg", "profile.jpg");
+       
+        List<String> imageFiles = photos.getImageFilenames();
+        if (!photos.getImageFilenames().get(0).equals(prevProfile)) {
+            // Update images - profile pic can change, support that
+            try {
+                String thumbName = photos.prepThumbnail().get();
+                GithubConnector.editFile(imageFilePrefix + thumbName, thumbName);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        } 
         
         Element imageGallery = htmlDoc.getElementById("image_gallery_full");
         // clear previous images
@@ -279,7 +283,7 @@ public class EditHorseComponent extends JPanel {
             // no-op if image already there - this does mean we don't support name swapping of local image files,
             // but that seems fine
             if (!prevImages.contains(fullPath)) {
-                GithubConnector.commitNew(imageFilePrefix + image, fullPath); 
+                GithubConnector.editFile(imageFilePrefix + image, fullPath);
             }
             imageGallery.append( "<img src=\"../" + imageFilePrefix + image + "\" full_size=\"../" + imageFilePrefix + image + "\">");
         }

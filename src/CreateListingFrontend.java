@@ -9,6 +9,8 @@ import java.awt.Graphics;
 import java.awt.LayoutManager;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -30,6 +32,8 @@ import javax.swing.UIManager;
 import javax.swing.border.MatteBorder;
 import javax.swing.plaf.ColorUIResource;
 
+import com.google.common.base.Supplier;
+
 import javafx.embed.swing.JFXPanel;
 
 public class CreateListingFrontend {
@@ -43,10 +47,10 @@ public class CreateListingFrontend {
     static JLayeredPane layeredPane;
 
     public static final Font DEFAULT_FONT = Font.decode("Arial");
-    public static final Color ERROR_COLOR = new Color(160, 0, 0);
+    
     public static final Color ADMIN_BACKGROUND = new Color(240, 240, 240);
     public static final int OVERALL_WIDTH = 850;
-    public static final Color SUCCESS_COLOR = new Color(0, 180, 0);
+    
 
     public static void main(String[] args) throws Exception {
         threadPool.submit(() -> {
@@ -76,6 +80,31 @@ public class CreateListingFrontend {
                     throw new RuntimeException(e);
                 }
                 outerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                outerFrame.addWindowListener(new WindowListener() {
+                    
+                    @Override
+                    public void windowOpened(WindowEvent e) {}
+                    
+                    @Override
+                    public void windowIconified(WindowEvent e) {}
+                    
+                    @Override
+                    public void windowDeiconified(WindowEvent e) {}
+                    
+                    @Override
+                    public void windowDeactivated(WindowEvent e) {}
+                    
+                    @Override
+                    public void windowClosing(WindowEvent e) {}
+                    
+                    @Override
+                    public void windowClosed(WindowEvent e) {
+                        GithubConnector.waitForPush();
+                    }
+                    
+                    @Override
+                    public void windowActivated(WindowEvent e) {}
+                });
 
                 outerFrame.setFont(DEFAULT_FONT);
                 
@@ -142,6 +171,12 @@ public class CreateListingFrontend {
                 swapInComponent(panel);
             });
             
+            FbConnector.doLogin();
+            
+           
+           
+           
+            
             JPanel wrapped = createTopLevelMenu();
             mainLayer.add(wrapped, BorderLayout.NORTH);
             JPanel fillerPanel = new JPanel();
@@ -190,28 +225,23 @@ public class CreateListingFrontend {
     private static JPanel createTopLevelMenu() {
         JButton createListingFromFb = new CustomButton("Add Horse From FB Post");
         createListingFromFb.addActionListener(e -> {
-            AddHorseFromFb comp = new AddHorseFromFb();
-            swapInComponent(comp);
+            addComp(() -> new AddHorseFromFb());
         });
         JButton createListing = new CustomButton("Add New Available Horse");
         createListing.addActionListener(e -> {
-            AddHorseDetailed comp = new AddHorseDetailed();
-            swapInComponent(comp);
+            addComp(() -> new AddHorseDetailed());
         });
         JButton markPlaced = new CustomButton("Mark Horse As Placed");
         markPlaced.addActionListener(e -> {
-            MarkPlacedComponent comp = new MarkPlacedComponent();
-            swapInComponent(comp);
+            addComp(() -> new MarkPlacedComponent());
         });
         JButton editListing = new CustomButton("Edit Existing Horse's Info");
         editListing.addActionListener(e -> {
-            EditHorseComponent comp = new EditHorseComponent();
-            swapInComponent(comp);
+            addComp(() -> new EditHorseComponent());
         });
-        JButton deploy = new CustomButton("Deploy Changes To Site");
+        JButton deploy = new CustomButton("Publish Changes To Site");
         deploy.addActionListener(e -> {
-            PreviewDeployComponent comp = new PreviewDeployComponent();
-            swapInComponent(comp);
+           addComp(() -> new PreviewDeployComponent());
         });
         
         JPanel wrapped = wrapButton(createListingFromFb);
@@ -224,7 +254,30 @@ public class CreateListingFrontend {
         return wrapped;
     }
     
-    protected static void swapInComponent(JComponent comp) {
+    private static void addComp(Supplier<JComponent> comp) {
+        if (!GithubConnector.isLocalCheckoutDone()) {
+            JPanel panel = new JPanel();
+            panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+            for (int i = 0; i < 10; i++) {
+                // squish the flow layouts
+                panel.add(wrapButton(new JLabel(" ")));
+            }
+            JLabel message = new JLabel("Setting up data...");
+            message.setFont(DEFAULT_FONT.deriveFont(24f));
+            panel.add(wrapButton(message));
+            for (int i = 0; i < 10; i++) {
+                // squish the flow layouts
+                panel.add(wrapButton(new JLabel(" ")));
+            }
+            swapInComponent(panel);
+            // will return once clone is done
+            GithubConnector.initialClone(); 
+        }
+        swapInComponent(comp.get());
+        
+    }
+
+    public static void swapInComponent(JComponent comp) {
         mainLayer.remove(((BorderLayout)mainLayer.getLayout()).getLayoutComponent(BorderLayout.CENTER));
         mainLayer.add(comp);
         mainLayer.revalidate();
@@ -244,7 +297,30 @@ public class CreateListingFrontend {
         return panel;
     }
     
-    public static void showSpinner() {
+    public static interface RunnableException {
+        public void run() throws Exception;
+    }
+    
+    public static void runWithSpinner(RunnableException r) {
+        runWithSpinner(new StatusLabel(), r);
+    }
+    
+    public static void runWithSpinner(StatusLabel status, RunnableException r) {
+        status.reset();
+        showSpinner();
+       
+        threadPool.submit(() -> {
+            try {
+               r.run();
+            } catch (Exception e) {
+                status.setError(e);
+            } finally {
+                hideSpinner();
+            }
+        });
+    }
+    
+    private static void showSpinner() {
         nonSpinnerLayer = layeredPane.getComponent(0);
         layeredPane.add(spinnerLayer);
         spinnerLayer.requestFocus();
@@ -269,7 +345,7 @@ public class CreateListingFrontend {
         });
     }
     
-    public static void hideSpinner() {
+    private static void hideSpinner() {
         layeredPane.remove(spinnerLayer);
         // pretty sure it's a swing bug that this is getting unset
         layeredPane.getLayout().addLayoutComponent("Center", nonSpinnerLayer);

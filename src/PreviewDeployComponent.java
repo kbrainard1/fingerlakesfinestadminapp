@@ -1,12 +1,10 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
-import java.awt.Font;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 // Add details for what to do if it doesn't look good
@@ -15,7 +13,7 @@ public class PreviewDeployComponent extends JPanel {
     PreviewDeployComponent() {
         JButton preview = new CustomButton("Preview website in browser");
         preview.addActionListener(e -> {
-            GithubConnector.cloneStaging();
+            GithubConnector.updateFromRemote();
             
             try {
                 // otherwise the embedded youtube videos don't have a valid referrer
@@ -25,19 +23,12 @@ public class PreviewDeployComponent extends JPanel {
             }
         });
         
-        JLabel success = new JLabel();
-        success.setForeground(CreateListingFrontend.SUCCESS_COLOR);
-        success.setFont(CreateListingFrontend.DEFAULT_FONT.deriveFont(Font.BOLD));
-        JButton deploy = new CustomButton("Looks good, deploy site!");
+        StatusLabel success = new StatusLabel();
+        JButton deploy = new CustomButton("Looks good, publish site!");
         deploy.addActionListener(e -> {
-            CreateListingFrontend.showSpinner();
-            CreateListingFrontend.threadPool.submit(() -> {
-                try {
-                    GithubConnector.mergeStaging();
-                    success.setText("Successfully Deployed Site");
-                } finally {
-                    CreateListingFrontend.hideSpinner();
-                }
+            CreateListingFrontend.runWithSpinner(success, () -> {
+                GithubConnector.mergeStaging();
+                success.setSuccess("Successfully Published Site");
             });
         });
         
@@ -45,7 +36,6 @@ public class PreviewDeployComponent extends JPanel {
         JPanel wrapButton = CreateListingFrontend.wrapButton(preview);
         wrapButton.add(deploy);
         wrapButton.add(success);
-        
         
         add(wrapButton, BorderLayout.NORTH);
         setOpaque(true);

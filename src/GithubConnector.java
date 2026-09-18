@@ -1,23 +1,22 @@
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.jgit.api.CreateBranchCommand.SetupUpstreamMode;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-import org.kohsuke.github.GHContent;
+import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
@@ -30,15 +29,19 @@ public class GithubConnector {
     private static final String GITHUB_REPO = "kbrainard1/fingerlakesfinest";
     private static final String LOCAL_CHECKOUT_DIR = "repo";
     private static final String EDIT_BRANCH = "staging";
+    private static final String MAIN_BRANCH = "main";
     private static final String TOKEN_KEY = "GH_TOKEN";
     private static final String KEY_EXPIRY = "GH_TOKEN_EXPIRATION";
     private static final String CLIENT_ID = "Iv23liOUVV6L6OCzqPwb"; // not secret
     
     private static GHRepository repo;
+    private static String gitUsername;
+    private static Git git;
     private static String token;
+    private static Future<?> currentPush;
     
-    // Use the API until/unless everything is cached locally
     private static AtomicBoolean localCheckoutComplete = new AtomicBoolean(false);
+    private static AtomicBoolean initialUpdateComplete = new AtomicBoolean(false);
     
     public static interface RedirectDisplay {
         public void displayActionNeeded(String url, String userCode);
@@ -66,6 +69,7 @@ public class GithubConnector {
                     refreshAccessToken(); 
                 }
                 GitHub github = new GitHubBuilder().withOAuthToken(token).build();
+                gitUsername = github.getMyself().getLogin();
                 repo = github.getRepository(GITHUB_REPO);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -92,11 +96,11 @@ public class GithubConnector {
     
     private static void runWithLocalGit(GitRunner runner) {
         getRepo(); // in case someone does something that needs credentials, make sure they're g2g
-        initialClone();
-        try (Git git = new Git(new FileRepositoryBuilder()
-                    .setGitDir(new File("repo/.git"))
-                    .build())) {
-                runner.run(git);
+        if (!localCheckoutComplete.get()) {
+            initialClone();
+        }
+        try {
+            runner.run(git);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -192,36 +196,40 @@ public class GithubConnector {
                     authorized = true;
                 }
             }
-                
-               
-
         } catch (Exception e) {
             throw new RuntimeException(e);
         }    
     }
-
-    
-    /** VERY SLOW if you actually need to clone (expect 1-2 minutes) */
+  
     public static synchronized void initialClone() {
-        if (!new File(LOCAL_CHECKOUT_DIR + "/.git").exists()) {
+        if (localCheckoutComplete.get()) {
+            return;
+        }
+        File localRepoFile = new File(LOCAL_CHECKOUT_DIR + "/.git");
+        File localRepoSuccess = new File(LOCAL_CHECKOUT_DIR + "/.success");
+        if (localRepoFile.exists() && !localRepoSuccess.exists()) {
+            deleteRecursive(localRepoFile); // incomplete checkout, start fresh
+        }
+        
+        if (!localRepoFile.exists()) {
             new File(LOCAL_CHECKOUT_DIR).mkdir();
             try {
                 Git.cloneRepository()
                 .setURI("https://www.github.com/" + GITHUB_REPO)
                 .setDirectory(new File(LOCAL_CHECKOUT_DIR))
                 .call();
-               
+                Files.writeString(localRepoSuccess.toPath(), "Success", StandardOpenOption.CREATE);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
-        try (Git git = new Git(new FileRepositoryBuilder()
-                .setGitDir(new File(LOCAL_CHECKOUT_DIR + "/.git"))
-                .build())) {
-            // Seriously, git?
+        try {
+            git = new Git(new FileRepositoryBuilder()
+                    .setGitDir(localRepoFile)
+                    .build());
             if (!git.getRepository().getBranch().equals(EDIT_BRANCH)) {
                 try {
-                    git.checkout().setName(EDIT_BRANCH);
+                    git.checkout().setName(EDIT_BRANCH).call();
                 } catch (Exception e) {
                     git.checkout().setName(EDIT_BRANCH).setUpstreamMode(SetupUpstreamMode.TRACK).setCreateBranch(true).call();
                 }
@@ -229,117 +237,131 @@ public class GithubConnector {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        
+        CreateListingFrontend.threadPool.submit(() -> {
+            while (true) {
+                updateFromRemote();
+                initialUpdateComplete.set(true);
+                Thread.sleep(60 * 1000);
+            }
+        });
         localCheckoutComplete.set(true);
     }
     
-    public static GHContent getRetriably(String file) throws IOException {
-        for (int i = 0; i < 3; i++) {
-            try {
-                return getRepo().getFileContent(file, EDIT_BRANCH);
-            } catch (IOException e) {
-               // ignore and retry
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e1) {
-                }
-            }
-        }
-        return getRepo().getFileContent(file, EDIT_BRANCH);
+    // for obvious reasons, this should be treated as a best-effort indicator
+    // Currently it's used for deciding whether or not to put up a UI spinner while the initial clone
+    // finishes
+    public static boolean isLocalCheckoutDone() {
+        return localCheckoutComplete.get();
     }
     
-    public static List<String> readFile(GHContent fileContent) throws IOException {
-        List<String> result = new ArrayList<>();
-        try (BufferedReader buff = new BufferedReader(new InputStreamReader(fileContent.read()))) {
-            String line;
-            while ((line = buff.readLine()) != null) {
-                result.add(line);
+    private static void deleteRecursive(File f) {
+        if (f.isDirectory()) {
+            for (File child : f.listFiles()) {
+                deleteRecursive(child);
             }
         }
-        return result;
-     }
+        f.delete();
+    }
 
-    public static void commitChange(String repoFile, String locationOfContents) throws IOException {
-        GHContent content = getRetriably(repoFile);
-        getRepo().createContent()
-        .content(Files.readAllBytes(Path.of(locationOfContents)))
-        .message("Content created")
-        .branch(EDIT_BRANCH)
-        .sha(content.getSha())
-        .path(repoFile)
-        .commit();
+    // Caution! All edits to the file should go through editFile, otherwise they
+    // won't get staged
+    public static File getFile(String file) throws IOException {
+        if (!initialUpdateComplete.get()) {
+            updateFromRemote();
+            initialUpdateComplete.set(true);
+        }
+        return new File(LOCAL_CHECKOUT_DIR + "/" + file);
     }
     
-    public static boolean commitNew(String repoFile, String locationOfContents) throws IOException {
+    public static Document getHtmlFile(String file) throws IOException {
+        return Jsoup.parse(Files.readString(getFile(file).toPath()));
+    }
+    
+    public static void editFile(String repoFile, String localFile) throws IOException {
+        if (!initialUpdateComplete.get()) {
+            updateFromRemote();
+            initialUpdateComplete.set(true);
+        }
+        com.google.common.io.Files.copy(new File(localFile), getFile(repoFile));
         try {
-            getRepo().createContent()
-            .content(Files.readAllBytes(Path.of(locationOfContents)))
-            .message("Content created")
-            .branch(EDIT_BRANCH)
-            .path(repoFile)
-            .commit();
-            return true;
+            synchronized (git) {
+                git.add().addFilepattern(repoFile).call();
+            }
         } catch (Exception e) {
-            return false;
+            throw new RuntimeException(e);
         }
     }
-
-    public static void cloneStaging() {
-        // public repo, no auth
+  
+    public static void commitAndPush() {
         runWithLocalGit(git -> {
+            // git add --all is for some reason insanely slow, 
+            // so rely on edit to have staged everything
+            git.commit().setCredentialsProvider(new UsernamePasswordCredentialsProvider("oauth2", token))
+            .setMessage("Site content")
+            .setCommitter(gitUsername, "dontneedthis@nope.com")
+            .call();
+            
+            synchronized (git) {
+                if (currentPush != null) {
+                    try {
+                        currentPush.get();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                currentPush = CreateListingFrontend.threadPool.submit(() -> git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider("oauth2", token)).call());
+            }
+        });
+    }
+
+    public static void updateFromRemote() {
+        // No auth, and called during initial setup, so don't use
+        // the runner framework
+        try {
             git.fetch().call();
             git.pull().call();
-        });
+        } catch (GitAPIException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void mergeStaging() {
         try {
-            GHRepository repo = getRepo();
-            repo.getBranch("main").merge(repo.getBranch(EDIT_BRANCH), "deploy site");
-            repo.getBranch(EDIT_BRANCH).merge(repo.getBranch("main"), "avoid conflicts");
+            synchronized (git) {
+                if (currentPush != null) {
+                    try {
+                        currentPush.get();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    currentPush = null;
+                }
+                GHRepository repo = getRepo();
+                repo.getBranch(MAIN_BRANCH).merge(repo.getBranch(EDIT_BRANCH), "deploy site");
+                repo.getBranch(EDIT_BRANCH).merge(repo.getBranch(MAIN_BRANCH), "avoid conflicts");
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     public static List<File> getImageDirectory(String directory) throws IOException {
-        if (localCheckoutComplete.get()) {
-            cloneStaging(); // pulls locally
-            return Arrays.asList(new File(LOCAL_CHECKOUT_DIR + "/" + directory).listFiles());
+        if (!initialUpdateComplete.get()) {
+            updateFromRemote();
+            initialUpdateComplete.set(true);
         }
-        for (int i = 0; i < 3; i++) {
+        return Arrays.asList(new File(LOCAL_CHECKOUT_DIR + "/" + directory).listFiles());
+    }
+
+    public static void waitForPush() {
+        if (currentPush != null) {
             try {
-                return cacheLocally(directory, getRepo().getDirectoryContent(directory, EDIT_BRANCH));
-            } catch (IOException e) {
-               // ignore and retry
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e1) {
-                }
+                currentPush.get();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+            currentPush = null;
         }
-        return cacheLocally(directory, getRepo().getDirectoryContent(directory, EDIT_BRANCH));
     }
-
-    private static List<File> cacheLocally(String dirName, List<GHContent> contents) throws IOException {
-        new File(dirName).mkdirs();
-        List<File> results = new ArrayList<>();
-        for (GHContent content : contents) {
-            Files.copy(content.read(), Path.of(dirName + "/" + content.getName()), StandardCopyOption.REPLACE_EXISTING);
-            results.add(new File(dirName, content.getName()));
-        }
-        return results;
-    }
-
-    public static String getString(GHContent file) throws IOException {
-        StringBuilder result = new StringBuilder();
-        try (BufferedReader buff = new BufferedReader(new InputStreamReader(file.read()))) {
-            String line;
-            while ((line = buff.readLine()) != null) {
-                result.append(line);
-                result.append(System.lineSeparator());
-            }
-        }
-        return result.toString();
-    }
-
 }

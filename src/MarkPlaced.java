@@ -3,7 +3,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -15,10 +14,10 @@ public class MarkPlaced {
     }
 
     public static void updatePage(String fileName, DocumentUpdater update) throws IOException {
-        Document page = Jsoup.parse(GithubConnector.getString(GithubConnector.getRetriably(fileName)));
+        Document page = GithubConnector.getHtmlFile(fileName);
         update.update(page);
         writePage(page);
-        GithubConnector.commitChange(fileName, "temp.html");
+        GithubConnector.editFile(fileName, "temp.html");
     }
     
     public static void writePage(Document page) throws IOException {
@@ -119,5 +118,6 @@ public class MarkPlaced {
             Element title = page.getElementsByTag("h1").get(0);
             title.after("<p>" + notes + "</p>");
         });
+        GithubConnector.commitAndPush();
     }
 }

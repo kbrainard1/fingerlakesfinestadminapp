@@ -1,9 +1,7 @@
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.Image;
 import java.io.IOException;
-import java.io.InputStream;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -29,14 +27,17 @@ public abstract class HorseListingBase extends JComponent {
         loadIcon(thumbnailFile, icon);
         add(icon);
         JLabel titleLabel = new JLabel(this.title);
-        titleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        titleLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+        while (titleLabel.getPreferredSize().getWidth() < 300) {
+            titleLabel.setText(titleLabel.getText() + " ");
+        }
         add(titleLabel);
     }
 
     private void loadIcon(String thumbnailFile, JLabel icon) {
         CreateListingFrontend.threadPool.submit(() -> {
-            try (InputStream in = GithubConnector.getRetriably(thumbnailFile).read()) {
-                icon.setIcon(new ImageIcon(ImageIO.read(in)
+            try {
+                icon.setIcon(new ImageIcon(ImageIO.read(GithubConnector.getFile(thumbnailFile))
                         .getScaledInstance(100, 100, Image.SCALE_SMOOTH)));
             } catch (IOException e) {
                 throw new RuntimeException(e);

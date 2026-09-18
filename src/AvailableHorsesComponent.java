@@ -1,13 +1,12 @@
 import java.awt.GridLayout;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-
-import org.kohsuke.github.GHContent;
 
 public class AvailableHorsesComponent<T extends HorseListingBase> {
 
@@ -48,8 +47,7 @@ public class AvailableHorsesComponent<T extends HorseListingBase> {
         try {
             horseListings.removeAll();
            
-            GHContent fileContent = GithubConnector.getRetriably("available.html");
-            List<String> lines = GithubConnector.readFile(fileContent);
+            List<String> lines = Files.readAllLines( GithubConnector.getFile("available.html").toPath());
             for (int i = 0; i < lines.size(); i++) {
                 if (lines.get(i).contains("available_title")) {
                     String listing = lines.get(i);

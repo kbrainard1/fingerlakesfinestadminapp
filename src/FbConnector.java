@@ -18,6 +18,10 @@ import com.restfb.json.JsonArray;
 import com.restfb.json.JsonObject;
 import com.restfb.json.JsonValue;
 
+// Open question: should this migrate to FacebookClient?
+// At the moment, seems unnecessary, and the main thing it does is stick the access token in a header
+// (see DefaultWebRequestor.initHeaderAccessToken). Lord knows I don't want to interact with those APIs
+// any more than I have to, so feature expansion in this area feels unlikely
 public class FbConnector {
 
     private static final String PAGE_ID = "1351602908027780"; // Dev page, need to find id for FLF
@@ -234,6 +238,11 @@ public class FbConnector {
         if (jsonResponse.contains("error")) {
             throw new RuntimeException("Failed to update post: " + jsonResponse.get("error").asObject().getString("message", ""));
         }
+        
+    }
+
+    public static void doLogin() {
+        // TODO Auto-generated method stub
         
     }
 }

@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
@@ -104,21 +105,18 @@ public class PhotosPanel {
     public JComponent getPhotosComponent() {
         return photosPanel;
     }
-
-    public List<String> prepImageFiles() throws IOException {
-        List<String> imageFiles = new ArrayList<>();
-        for (int i = 0; i < photosPreview.getComponentCount(); i++) {
-            imageFiles.add(((CustomPhoto)photosPreview.getComponent(i)).getFileName());
-        }
-
-        // Make a small thumbnail
-        BufferedImage rawImage = ImageIO.read(new File(((CustomPhoto)photosPreview.getComponent(0)).getFileName()));
-        BufferedImage buffered = new BufferedImage(rawImage.getWidth() / 2, rawImage.getHeight() / 2, 
-                BufferedImage.TYPE_INT_RGB);
-        buffered.getGraphics().drawImage(rawImage.getScaledInstance(rawImage.getWidth() / 2, 
-                rawImage.getHeight() / 2, Image.SCALE_SMOOTH), 0, 0 , null);
-        ImageIO.write(buffered, "jpg", new File(THUMBNAIL_NAME));
-        return imageFiles;
+    
+    public Future<String> prepThumbnail() {
+        return CreateListingFrontend.threadPool.submit(() -> {
+            // Make a small thumbnail
+            BufferedImage rawImage = ImageIO.read(new File(((CustomPhoto)photosPreview.getComponent(0)).getFileName()));
+            BufferedImage buffered = new BufferedImage(rawImage.getWidth() / 2, rawImage.getHeight() / 2, 
+                    BufferedImage.TYPE_INT_RGB);
+            buffered.getGraphics().drawImage(rawImage.getScaledInstance(rawImage.getWidth() / 2, 
+                    rawImage.getHeight() / 2, Image.SCALE_SMOOTH), 0, 0 , null);
+            ImageIO.write(buffered, "jpg", new File(THUMBNAIL_NAME));
+            return THUMBNAIL_NAME;
+        });
     }
     
     // does not create a thumbnail

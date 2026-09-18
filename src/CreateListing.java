@@ -1,16 +1,15 @@
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
 
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 public class CreateListing {
 
-    public static boolean createListingPage(List<String> data, String thumbName,
+    public static boolean createListingPage(List<String> data, Future<String> thumbnail,
             List<String> imagePaths) throws Exception {
         String title = data.get(0);
         // sometimes it's name, birth year, sometimes name birth year, height
@@ -46,10 +45,10 @@ public class CreateListing {
             }
             bio.add(data.get(i));
         }
-        return createListingPage(name, title, thumbName, imagePaths, EquibaseConnector.loadEquibaseUrl(shortName), pedigreeLink, videoLinks, bio);
+        return createListingPage(name, title, thumbnail, imagePaths, EquibaseConnector.loadEquibaseUrl(shortName), pedigreeLink, videoLinks, bio);
     }
     
-    public static boolean createListingPage(String name, String title, String thumbName,
+    public static boolean createListingPage(String name, String title, Future<String> thumbnail,
             List<String> imagePaths, String raceRecordLink, String pedigreeLink, List<String> videoLinks,
             List<String> bio) throws Exception {
         String shortNameBuilder = "";
@@ -59,12 +58,20 @@ public class CreateListing {
             }
         }
         String shortName = shortNameBuilder;
+        
+        Future<?> storeImageFiles = CreateListingFrontend.threadPool.submit(() -> {
+            try {
+                storeImageFiles(imagePaths, thumbnail, shortName);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
-        Document page = Jsoup.parse(GithubConnector.getString(GithubConnector.getRetriably("horsePages/availTemplate.html")));
+        Document page = GithubConnector.getHtmlFile("horsePages/availTemplate.html");
         page.getElementsByTag("head").get(0).append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
         
         Element firstMainChild = page.getElementById("image_gallery_full");
-        firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + thumbName + "\">");
+        firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + PhotosPanel.THUMBNAIL_NAME + "\">");
         firstMainChild.before("    <h1>" + title + "</h1>");
 
         for (String bioPara : bio) {
@@ -74,28 +81,41 @@ public class CreateListing {
         firstMainChild.before("<p><a href=\"" + raceRecordLink + "\" target=\"_blank\" rel=\"noreferrer noopener\">Race Record</a></p>");
         firstMainChild.before("<p><a rel=\"noreferrer noopener\" href=\"" + pedigreeLink + "\" target=\"_blank\">Pedigree</a></p>");
         
-        GithubConnector.commitNew("horsePages/" + shortName + "_files/" + thumbName, thumbName);
         writeImages(page, shortName, imagePaths);
         
         writeVideos(page, videoLinks);
         
         MarkPlaced.writePage(page);
-        page.outputSettings(page.outputSettings().prettyPrint(false));
-        try (BufferedWriter out = new BufferedWriter(new FileWriter("temp.html"))) {
-            out.write(page.outerHtml());
-            out.newLine();
+       
+        if (GithubConnector.getFile("horsePages/" + shortName + ".html").exists()) {
+            // already created! Don't double-post to the metadata
+            return false;
         }
-       boolean newPage = GithubConnector.commitNew("horsePages/" + shortName + ".html", "temp.html");
-       if (!newPage) {
-           // Generally, semantic merge conflict, horse has already been posted
-           return false;
-       }
-
+        GithubConnector.editFile("horsePages/" + shortName + ".html", "temp.html");
         String snippet = buildSnippet(bio);
 
-        updateMetadata(title,  "horsePages/" + shortName + "_files/" + thumbName, 
+        updateMetadata(title,  "horsePages/" + shortName + "_files/" + PhotosPanel.THUMBNAIL_NAME, 
                 "horsePages/" + shortName + ".html", snippet);
+        storeImageFiles.get(); 
+        GithubConnector.commitAndPush();
         return true;
+    }
+
+    private static void storeImageFiles(List<String> imagePaths, Future<String> thumbnail, String shortName) throws IOException {
+        GithubConnector.getFile("horsePages/" + shortName + "_files/").mkdir();
+        for (String fullPath : imagePaths) {
+            String image = fullPath.substring(fullPath.lastIndexOf(File.separator) + 1);
+            GithubConnector.editFile("horsePages/" + shortName + "_files/" + image, fullPath);
+        }
+        
+        String thumbnailName;
+        try {
+            thumbnailName = thumbnail.get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        
+        GithubConnector.editFile("horsePages/" + shortName + "_files/" + thumbnailName, thumbnailName);
     }
 
     private static void writeImages(Document page, String shortName,
@@ -103,7 +123,6 @@ public class CreateListing {
         Element imageGallery = page.getElementById("image_gallery_full");
         for (String fullPath : imageFullPaths) {
             String image = fullPath.substring(fullPath.lastIndexOf(File.separator) + 1);
-            GithubConnector.commitNew("horsePages/" + shortName + "_files/" + image, fullPath);
             imageGallery.append( "<img src=\"" + shortName + "_files/" + image + "\" full_size=\"" + shortName + "_files/" + image + "\">");
         }
     }
@@ -113,7 +132,7 @@ public class CreateListing {
         int dataIndex = 0;
         int snippetLen = 400;
         boolean trimmed = false;
-        while (snippet.length() < snippetLen && !trimmed) {
+        while (snippet.length() < snippetLen && !trimmed && dataIndex < data.size()) {
             String toAdd = data.get(dataIndex);
             while (toAdd.length() > snippetLen - snippet.length() && toAdd.contains(".")) {
                 toAdd = toAdd.substring(0, toAdd.lastIndexOf("."));

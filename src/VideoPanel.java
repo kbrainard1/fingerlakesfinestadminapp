@@ -31,10 +31,12 @@ public class VideoPanel extends JPanel {
     
     public VideoPanel(List<String> urls) {
         try {
-            for (String url : urls) {
-                youtubeResults.add(new YoutubeVideoComponent(YoutubeConnector.lookupByLink(url)));
-            }
             init();
+            CreateListingFrontend.threadPool.submit(() -> {
+                for (String url : urls) {
+                    addUrl(url);
+                }
+            });
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -54,14 +56,7 @@ public class VideoPanel extends JPanel {
         customLinkAdd.addActionListener(e -> {
             String youtubeLink = customLink.getText();
             if (youtubeLink != null && !youtubeLink.isBlank()) {
-                try {
-                    YoutubeConnector.YoutubeResult result = YoutubeConnector.lookupByLink(youtubeLink);
-                    youtubeResults.add(new YoutubeVideoComponent(result));
-                    revalidate();
-                    repaint();
-                } catch (Exception e1) {
-                    throw new RuntimeException(e1);
-                }
+                addUrl(youtubeLink);
             }
         });
 
@@ -72,11 +67,30 @@ public class VideoPanel extends JPanel {
 
         JScrollPane videoWrapper = new JScrollPane(youtubeResults,
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        JLabel initialLabel = new JLabel("Loading...");
+        initialLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+        if (youtubeResults.getComponentCount() == 0) {
+            youtubeResults.add(initialLabel);
+        }
         youtubeResults.setLayout(new GridLayout(1, 0, 3, 3));
         youtubeResults.setPreferredSize(new Dimension(YoutubeVideoComponent.WIDTH * youtubeResults.getComponentCount(), YoutubeVideoComponent.HEIGHT + 40));
         add(videoWrapper);
         add(customAdd, BorderLayout.SOUTH);
 
+    }
+
+    private void addUrl(String youtubeLink) {
+        try {
+            if (youtubeResults.getComponentCount() > 0 && !(youtubeResults.getComponent(0) instanceof YoutubeVideoComponent)) {
+                youtubeResults.remove(youtubeResults.getComponent(0)); // initial loading text
+            }
+            YoutubeConnector.YoutubeResult result = YoutubeConnector.lookupByLink(youtubeLink);
+            youtubeResults.add(new YoutubeVideoComponent(result));
+            revalidate();
+            repaint();
+        } catch (Exception e1) {
+            throw new RuntimeException(e1);
+        }
     }
 
     public List<String> getYoutubeLinks() {
