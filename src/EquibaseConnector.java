@@ -1,6 +1,10 @@
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.NoSuchElementException;
@@ -12,7 +16,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 public class EquibaseConnector {
 
 
-    public static synchronized String loadEquibaseUrl(String title) throws InterruptedException {
+    public static synchronized String loadEquibaseUrl(String title) throws InterruptedException {        
         WebDriver driver = makeDriver();
         try {
             driver.get("https://www.equibase.com");
@@ -67,23 +71,59 @@ public class EquibaseConnector {
                         + "Chrome/124.0.0.0 Safari/537.36"
                 );
         WebDriver driver = new ChromeDriver(options);
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(5));
         return driver;
     }
 
-    public static record HorsePage(String url, String contents) {}
+    public static record HorseInfo(String equibaseUrl, String pedigreeUrl, 
+            String shortSex, String shortColor, String year) {}
     
-    public static synchronized HorsePage loadHorsePage(String horse) {
+    private static Map<String, String[]> equibaseCache = EquibaseScraper.loadHorseCache();
+    
+    public static synchronized HorseInfo loadHorsePage(String horse) {
+        HorseInfo cached = cacheLookup(horse);
+        if (cached != null) {
+            return cached;
+        }
+        
         WebDriver driver = makeDriver();
         try {
-            driver.get("https://www.equibase.com");
+            driver.get("https://www.equibase.com/");
             navigateToHorsePage(horse, driver);
-            return new HorsePage(driver.getCurrentUrl(), driver.getPageSource());
+            String url = driver.getCurrentUrl();
+            Document horsePage = Jsoup.parse(driver.getPageSource());
+            Elements elems = horsePage.select(".horse-profile-top-bar-headings");
+            String[] horseDeets = elems.get(0).ownText().split(",");
+            return new HorseInfo(url,
+                    horsePage.select("a[href*=equineline.com/Free]").get(0).attr("href"),
+                    horseDeets[2],
+                    horseDeets[1],
+                    horseDeets[horseDeets.length - 1]);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         } finally {
             driver.quit();
         }
+    }
+
+    private static EquibaseConnector.HorseInfo cacheLookup(String horse) {        
+        String shortName = "";
+        for (int i = 0; i < horse.length(); i++) {
+            if (Character.isLetter(horse.charAt(i))) {
+                shortName += Character.toLowerCase(horse.charAt(i));
+            }
+        }
+        //sweetrefuge,10900506, 2019, B, M
+        String[] horseInfo = equibaseCache.get(shortName);
+        if (horseInfo != null) {
+            String equibaseUrl = "https://www.equibase.com/profiles/Results.cfm?type=Horse&refno=" + horseInfo[1] + "&registry=T&rbt=TB";
+            String pedigreeUrl = "https://www.equineline.com/Free-5X-Pedigree.cfm?page_state=ORDER_AND_CONFIRM&include_sire_line=N&include_truenick=N&reference_number=" + horseInfo[1];
+            String year = horseInfo[2].trim();
+            String color = horseInfo[3].trim();
+            String sex = horseInfo[4].trim();
+            return new HorseInfo(equibaseUrl, pedigreeUrl, sex, color, year);
+        }
+        return null;
     }
 }

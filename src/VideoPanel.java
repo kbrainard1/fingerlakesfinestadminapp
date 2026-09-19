@@ -24,6 +24,10 @@ public class VideoPanel extends JPanel {
                 youtubeResults.add(new YoutubeVideoComponent(video));
             }
             init();
+            // if we aren't loading anything, don't claim otherwise
+            if (videos.size() == 0) {
+                youtubeResults.remove(0);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -35,6 +39,10 @@ public class VideoPanel extends JPanel {
             CreateListingFrontend.threadPool.submit(() -> {
                 for (String url : urls) {
                     addUrl(url);
+                }
+                // if we aren't loading anything, don't claim otherwise
+                if (urls.size() == 0) {
+                    youtubeResults.remove(0);
                 }
             });
         } catch (Exception e) {

@@ -13,6 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.jgit.api.CreateBranchCommand.SetupUpstreamMode;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.jsoup.Jsoup;
@@ -26,10 +29,26 @@ import com.restfb.json.JsonObject;
 
 public class GithubConnector {
     
+    public static enum CommitType {
+        ADD_HORSE("Add horse"),
+        EDIT_HORSE("Edit horse"),
+        MARK_PLACED("Mark horse as placed");
+        
+        private final String message;
+
+        private CommitType(String message) {
+            this.message = message;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+    }
+    
     private static final String GITHUB_REPO = "kbrainard1/fingerlakesfinest";
     private static final String LOCAL_CHECKOUT_DIR = "repo";
-    private static final String EDIT_BRANCH = "staging";
-    private static final String MAIN_BRANCH = "main";
+    private static final String EDIT_BRANCH = "test";
+    private static final String MAIN_BRANCH = "testmain";
     private static final String TOKEN_KEY = "GH_TOKEN";
     private static final String KEY_EXPIRY = "GH_TOKEN_EXPIRATION";
     private static final String CLIENT_ID = "Iv23liOUVV6L6OCzqPwb"; // not secret
@@ -293,26 +312,30 @@ public class GithubConnector {
         }
     }
   
-    public static void commitAndPush() {
+    public static void commitAndPush(CommitType type) {
         runWithLocalGit(git -> {
             // git add --all is for some reason insanely slow, 
             // so rely on edit to have staged everything
             git.commit().setCredentialsProvider(new UsernamePasswordCredentialsProvider("oauth2", token))
-            .setMessage("Site content")
+            .setMessage(type.getMessage())
             .setCommitter(gitUsername, "dontneedthis@nope.com")
             .call();
             
             synchronized (git) {
-                if (currentPush != null) {
-                    try {
-                        currentPush.get();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                currentPush = CreateListingFrontend.threadPool.submit(() -> git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider("oauth2", token)).call());
+                doPushUnsafe(git);
             }
         });
+    }
+
+    private static void doPushUnsafe(Git git) {
+        if (currentPush != null) {
+            try {
+                currentPush.get();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        currentPush = CreateListingFrontend.threadPool.submit(() -> git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider("oauth2", token)).call());
     }
 
     public static void updateFromRemote() {
@@ -363,5 +386,42 @@ public class GithubConnector {
             }
             currentPush = null;
         }
+    }
+    
+    public static class CommitTypeFilter extends RevFilter {
+        
+        private CommitType type;
+        
+        public CommitTypeFilter(CommitType type) {
+            this.type = type;
+        }
+
+        @Override
+        public boolean include(RevWalk walker, RevCommit commit) {
+            String message = commit.getFullMessage().toLowerCase();
+            return message.contains(type.getMessage().toLowerCase()) &&
+                    !message.contains("revert");
+        }
+        
+        @Override
+        public RevFilter clone() {
+           return new CommitTypeFilter(type);
+        }
+    }
+
+    public static void revertLast(GithubConnector.CommitType type) {
+        synchronized (git) {
+            git.revert();
+            try {
+               for (RevCommit toRevert : git.log().all().setMaxCount(10).setRevFilter(new CommitTypeFilter(type)).call()) {
+                   git.revert().include(toRevert).call();
+                   break; // revert at most 1
+               }
+               doPushUnsafe(git);
+            } catch (IOException | GitAPIException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
     }
 }

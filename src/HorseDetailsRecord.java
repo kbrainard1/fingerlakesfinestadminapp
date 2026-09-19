@@ -13,6 +13,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.border.LineBorder;
 
 public class HorseDetailsRecord {
 
@@ -36,6 +37,7 @@ public class HorseDetailsRecord {
 
     public JPanel createStatsComponent(AutofillCallback autofillCallack) {
         JPanel center = new JPanel();
+        center.setBorder(new LineBorder(Color.BLACK, 1, false));
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
         name = new DataFieldComponent("Horse Name");
         name.enable();

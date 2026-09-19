@@ -68,7 +68,7 @@ public class CreateListing {
         });
 
         Document page = GithubConnector.getHtmlFile("horsePages/availTemplate.html");
-        page.getElementsByTag("head").get(0).append("<title>" + name + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
+        page.getElementsByTag("head").get(0).append("<title>" + nameCase(name) + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
         
         Element firstMainChild = page.getElementById("image_gallery_full");
         firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + PhotosPanel.THUMBNAIL_NAME + "\">");
@@ -97,8 +97,30 @@ public class CreateListing {
         updateMetadata(title,  "horsePages/" + shortName + "_files/" + PhotosPanel.THUMBNAIL_NAME, 
                 "horsePages/" + shortName + ".html", snippet);
         storeImageFiles.get(); 
-        GithubConnector.commitAndPush();
+        GithubConnector.commitAndPush(GithubConnector.CommitType.ADD_HORSE);
         return true;
+    }
+
+    private static String nameCase(String name) {
+        String result = "";
+        boolean shouldCapsNext = true;
+        for (int i = 0; i < name.length(); i++) {
+            if (Character.isLetter(name.charAt(i))) {
+                if (shouldCapsNext) {
+                    result += Character.toUpperCase(name.charAt(i));
+                } else {
+                    result += Character.toLowerCase(name.charAt(i));
+                }
+                shouldCapsNext = false;
+            } else {
+                result += name.charAt(i);
+            }
+                
+            if (Character.isWhitespace(name.charAt(i))) {
+                shouldCapsNext = true;
+            }
+        }
+        return result;
     }
 
     private static void storeImageFiles(List<String> imagePaths, Future<String> thumbnail, String shortName) throws IOException {

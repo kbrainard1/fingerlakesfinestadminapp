@@ -171,7 +171,26 @@ public class CreateListingFrontend {
                 swapInComponent(panel);
             });
             
-            FbConnector.doLogin();
+            JLabel fbMessage = new JLabel("Facebook authorization needed!");
+            fbMessage.setFont(DEFAULT_FONT.deriveFont(24f));
+            JPanel panel = new JPanel();
+            panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+            for (int i = 0; i < 10; i++) {
+                // squish the flow layouts
+                panel.add(wrapButton(new JLabel(" ")));
+            }
+            panel.add(wrapButton(fbMessage));
+            for (int i = 0; i < 10; i++) {
+                // squish the flow layouts
+                panel.add(wrapButton(new JLabel(" ")));
+            }
+            swapInComponent(panel);
+            try {
+                FbConnector.doLogin();
+            } catch (Exception e) {
+                // Continue without it, that's fine
+                fbMessage.setText("Facebook auth failed, continuing without it");
+            }
             
            
            
@@ -223,10 +242,13 @@ public class CreateListingFrontend {
     }
 
     private static JPanel createTopLevelMenu() {
-        JButton createListingFromFb = new CustomButton("Add Horse From FB Post");
-        createListingFromFb.addActionListener(e -> {
-            addComp(() -> new AddHorseFromFb());
-        });
+        // Not completely removing just yet, but (a) the goal for other users is to avoid anyone doing this
+        // (b) for me it's trivial to put back 
+        // (c) After adding a handful from fb through the normal add flow, it's not much more work
+//        JButton createListingFromFb = new CustomButton("Add Horse From FB Post");
+//        createListingFromFb.addActionListener(e -> {
+//            addComp(() -> new AddHorseFromFb());
+//        });
         JButton createListing = new CustomButton("Add New Available Horse");
         createListing.addActionListener(e -> {
             addComp(() -> new AddHorseDetailed());
@@ -239,18 +261,19 @@ public class CreateListingFrontend {
         editListing.addActionListener(e -> {
             addComp(() -> new EditHorseComponent());
         });
-        JButton deploy = new CustomButton("Publish Changes To Site");
-        deploy.addActionListener(e -> {
-           addComp(() -> new PreviewDeployComponent());
-        });
+
+        // Consider not having this now that it's wired in the the add & edit flows, and automatic from mark placed
+//        JButton deploy = new CustomButton("Publish Changes To Site");
+//        deploy.addActionListener(e -> {
+//           addComp(() -> new PreviewDeployComponent());
+//        });
         
-        JPanel wrapped = wrapButton(createListingFromFb);
-        wrapped.add(createListing);
+        JPanel wrapped = wrapButton(createListing);
         wrapped.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY));
         wrapped.setBackground(ADMIN_BACKGROUND);
         wrapped.add(markPlaced);
         wrapped.add(editListing);
-        wrapped.add(deploy);
+        //wrapped.add(deploy);
         return wrapped;
     }
     

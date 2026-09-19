@@ -17,8 +17,8 @@ import javax.swing.plaf.basic.BasicButtonUI;
 public class CustomButton extends JButton {
 
     public static Color normalBg = new Color(200, 220, 250);
-    private static Color hoverBg = new Color(160, 180, 250);
-    private static Color clickBg = new Color(120, 140, 250);
+    public static Color hoverBg = new Color(160, 180, 250);
+    public static Color clickBg = new Color(120, 140, 250);
     private static Color borderColor = new Color(25, 25, 128);
 
     public interface UnscaledBorderPainter {

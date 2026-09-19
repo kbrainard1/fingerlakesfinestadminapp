@@ -118,6 +118,6 @@ public class MarkPlaced {
             Element title = page.getElementsByTag("h1").get(0);
             title.after("<p>" + notes + "</p>");
         });
-        GithubConnector.commitAndPush();
+        GithubConnector.commitAndPush(GithubConnector.CommitType.MARK_PLACED);
     }
 }

@@ -1,13 +1,29 @@
-import javax.swing.ButtonGroup;
+import java.awt.Color;
+import java.awt.FlowLayout;
 
-public class EditHorseListingComponent extends HorseListingBase {
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.border.LineBorder;
 
-    public EditHorseListingComponent(String detailPage, String title, String thumbnailFile) {
-        super(detailPage, title, thumbnailFile);
-    }
+
+public class EditHorseListingComponent extends JButton {
     
-    public void addToButtonGroup(ButtonGroup group) {
-        group.add(checked);
+    private JLabel titleLabel;
+    
+    public static interface EditCallback {
+        public void call(String detailPage);
     }
 
+    public EditHorseListingComponent(String detailPage, String title, String thumbnailFile, EditCallback edit) {
+        title = HorseListingHelper.simplifyWhitespace(title);
+        setLayout(new FlowLayout(FlowLayout.LEFT));
+        setBorder(new LineBorder(Color.DARK_GRAY, 1, true));
+        JLabel icon = HorseListingHelper.loadIcon(thumbnailFile);
+        add(icon);
+        titleLabel = new JLabel(title);
+        titleLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+        add(titleLabel);
+        addActionListener(e -> edit.call(detailPage));
+        setFocusable(false);
+    }
 }

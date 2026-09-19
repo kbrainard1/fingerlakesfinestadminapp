@@ -2,6 +2,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
@@ -46,7 +47,7 @@ public class SuccessHorseComponent extends JPanel {
             CreateListingFrontend.swapInComponent(new EditHorseComponent(horsePage));
         });
         
-        JButton deploy = new CustomButton("Looks Good, Publish to Site!");
+        JButton deploy = new CustomButton("Publish to Site");
         deploy.addActionListener(e -> {
             CreateListingFrontend.runWithSpinner(status, () -> {
                 GithubConnector.mergeStaging();
@@ -55,7 +56,7 @@ public class SuccessHorseComponent extends JPanel {
         });
         
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
-        JPanel wrapButton = CreateListingFrontend.wrapButton(preview);
+        JPanel wrapButton = CreateListingFrontend.wrapButton(preview, new FlowLayout(FlowLayout.CENTER, 20, 5));
         wrapButton.add(back);
         wrapButton.add(deploy);
         

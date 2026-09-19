@@ -2,43 +2,59 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JPanel;
 
 public class MarkPlacedComponent extends JPanel {
     
-    private AvailableHorsesComponent<HorseListingComponent> horseListings;
+    private MarkPlaceableComponent horseListings;
+    private HorseListingComponent.ChosenHorseCallback buttonListener;
+    private JPanel placedHeader;
     
     public MarkPlacedComponent() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
         StatusLabel success = new StatusLabel();
-       
-        JButton markPlaced = new CustomButton("Mark As Placed");
-        markPlaced.addActionListener(e -> {
+        
+        buttonListener = (href, title, details) -> {
 
             CreateListingFrontend.runWithSpinner(success, () -> {
-                boolean successForAll = true;
-                for (HorseListingComponent comp : horseListings.getSelected()) {
-                    MarkPlaced.markPlaced(comp.getHref(), comp.getDetails());
-                    successForAll &= updateFbPost(comp.getTitle(), comp.getDetails());
-                }
+                MarkPlaced.markPlaced(href, details);
+                boolean updatedFb = updateFbPost(title, details);
                 GithubConnector.mergeStaging();
-                if (successForAll) {
-                    success.setSuccess("Success!");
+                if (updatedFb) {
+                    success.setSuccess("");
                 } else {
-                    success.setError("Not all Facebook posts updated");
+                    success.setError("Facebook post failed to update");
                 }
-                horseListings.loadHorses();
+                for (int i = 0; i < placedHeader.getComponentCount(); i++) {
+                    if (placedHeader.getComponent(i) instanceof UndoLabel) {
+                        placedHeader.remove(i);
+                        break;
+                    }
+                }
+                placedHeader.add(new UndoLabel(title, () -> {
+                    for (int i = 0; i < placedHeader.getComponentCount(); i++) {
+                        if (placedHeader.getComponent(i) instanceof UndoLabel) {
+                            placedHeader.remove(i);
+                            break;
+                        }
+                    }
+                    success.reset();
+                    horseListings.loadHorses(buttonListener);
+                    revalidate();
+                    repaint();
+                }));
+                horseListings.loadHorses(buttonListener);
+                revalidate();
+                repaint();
             });
 
-        });
+        };
         setLayout(new BorderLayout());
-        JPanel placedHeader = CreateListingFrontend.wrapButton(markPlaced);
-        placedHeader.add(success);
+        placedHeader = CreateListingFrontend.wrapButton(success);
         add(placedHeader, BorderLayout.NORTH);
         
-        horseListings = new AvailableHorsesComponent<>((detailPage, title, thumbnailFile) -> new HorseListingComponent(detailPage, title, thumbnailFile));
-        add(horseListings.getComponent(), BorderLayout.CENTER);
+        horseListings = new MarkPlaceableComponent();
+        add(horseListings.getComponent(buttonListener), BorderLayout.CENTER);
     }
 
     private boolean updateFbPost(String title, String details) {

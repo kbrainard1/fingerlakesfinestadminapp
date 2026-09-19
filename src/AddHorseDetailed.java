@@ -1,4 +1,5 @@
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,23 +11,16 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
-
 public class AddHorseDetailed extends AddHorseShared {
     private HorseDetailsRecord horseData;
 
     public AddHorseDetailed() {
         setLayout(new BorderLayout());
 
-        JLabel firstPageLabel = new JLabel("First, enter the basic info:");
-        firstPageLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
-        JPanel header = CreateListingFrontend.wrapButton(firstPageLabel);
-        header.add(new JLabel("                                                                            "));
-        // enter stats
         JButton next = new CustomButton("Next - Add Details");
-        header.add(next);
+        next.setEnabled(false);
+        JPanel header = CreateListingFrontend.wrapButton(next);
+
         next.addActionListener(e -> {
             if (horseData.validateStats()) {
                 loadNextScreen();
@@ -34,9 +28,17 @@ public class AddHorseDetailed extends AddHorseShared {
         });
         add(header, BorderLayout.NORTH);
 
+        JPanel addMargins = new JPanel();
+        addMargins.setBackground(Color.WHITE);
+        addMargins.setLayout(new BorderLayout());
+        addMargins.add(MarkPlaceableComponent.createSpacer(), BorderLayout.WEST);
+        addMargins.add(MarkPlaceableComponent.createSpacer(), BorderLayout.EAST);
+        addMargins.add(MarkPlaceableComponent.createSpacer(), BorderLayout.SOUTH);
+        
         horseData = new HorseDetailsRecord();
-        add(horseData.createStatsComponent(name -> {
+        addMargins.add(horseData.createStatsComponent(name -> {
             try {
+                next.setEnabled(true);
                 attemptToFill(name);
                 return true;
             } catch (Exception e) {
@@ -44,6 +46,8 @@ public class AddHorseDetailed extends AddHorseShared {
             }
             
         }), BorderLayout.CENTER);
+        
+        add(addMargins, BorderLayout.CENTER);
     }
 
 
@@ -169,16 +173,13 @@ public class AddHorseDetailed extends AddHorseShared {
             }
         }
 
-        EquibaseConnector.HorsePage horseInfo = EquibaseConnector.loadHorsePage(sanitized.toString());
-        String url = horseInfo.url();
-        Document horsePage = Jsoup.parse(horseInfo.contents());
-        Elements elems = horsePage.select(".horse-profile-top-bar-headings");
-        String[] horseDeets = elems.get(0).ownText().split(",");
+        EquibaseConnector.HorseInfo horseInfo = EquibaseConnector.loadHorsePage(sanitized.toString());
+        String url = horseInfo.equibaseUrl();
         horseData.setEquibase(url);
-        horseData.setColor(expandColor(horseDeets[1]));
-        horseData.setSex(expandSex(horseDeets[2]));
-        horseData.setYear(horseDeets[horseDeets.length - 1]);
-        horseData.setPedigree(horsePage.select("a[href*=equineline.com/Free]").get(0).attr("href"));
+        horseData.setColor(expandColor(horseInfo.shortColor()));
+        horseData.setSex(expandSex(horseInfo.shortSex()));
+        horseData.setYear(horseInfo.year());
+        horseData.setPedigree(horseInfo.pedigreeUrl());
     }
 
     private String expandSex(String sex) {

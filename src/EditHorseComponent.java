@@ -3,6 +3,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,7 +14,6 @@ import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -27,7 +27,7 @@ import org.jsoup.select.Elements;
 
 public class EditHorseComponent extends JPanel {
     
-    private AvailableHorsesComponent<EditHorseListingComponent> horses;
+    private JPanel horses;
     
     private JTextField title;
     private JTextArea bio;
@@ -39,31 +39,17 @@ public class EditHorseComponent extends JPanel {
 
     public EditHorseComponent() {
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
-        JButton markPlaced = new CustomButton("Edit Horse");
-        markPlaced.addActionListener(e -> {
-            CreateListingFrontend.runWithSpinner(() -> {
-                for (EditHorseListingComponent comp : horses.getSelected()) {
-                    // Just edit the first one
-                    editHorse(comp.getHref());
-                }
-            });
-
-        });
         setLayout(new BorderLayout());
-        add(CreateListingFrontend.wrapButton(markPlaced), BorderLayout.NORTH);
 
-        horses = new AvailableHorsesComponent<>((detailPage, title, thumbnailFile) -> new EditHorseListingComponent(detailPage, title, thumbnailFile)) {
-            @Override
-            public void loadHorses() {
-                super.loadHorses();
-                ButtonGroup bg = new ButtonGroup();
-                for (int i = 0; i < horseListings.getComponentCount(); i++) {
-                    EditHorseListingComponent comp = (EditHorseListingComponent)horseListings.getComponent(i);
-                    comp.addToButtonGroup(bg);
-                }
-            }
-        };
-        add(horses.getComponent(), BorderLayout.CENTER);
+        horses = new JPanel();
+        horses.setLayout(new GridLayout(0, 2, 3, 3));
+        JScrollPane comp = new JScrollPane(horses,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        AvailableHorsesLoader.loadHorses().forEach(horse -> {
+            horses.add(new EditHorseListingComponent(horse.page(), horse.title(), horse.thumbnail(),
+                    href -> editHorse(href)));
+        });
+        add(comp, BorderLayout.CENTER);
     }
     
     public EditHorseComponent(String horsePage) {
@@ -104,7 +90,7 @@ public class EditHorseComponent extends JPanel {
 
                 updateAvailablePage(horsePage, bioInfo);
 
-                GithubConnector.commitAndPush();
+                GithubConnector.commitAndPush(GithubConnector.CommitType.EDIT_HORSE);
 
                 showSuccess(horsePage);
             });
@@ -169,7 +155,7 @@ public class EditHorseComponent extends JPanel {
             
             @Override
             public String getButtonText() {
-                return "Update/Create Facebook Post";
+                return "Update Facebook Post";
             }
         }), BorderLayout.CENTER);
         
