@@ -61,3 +61,7 @@ A: We need a marginally more secure than a public repo way to hand out the youtu
 Q: Why does the Equibase auto-fill take such wildly varying amounts of time?
 
 A: Unfortunately, Equibase set up cloudflare without also creating an API with a quota system. There are workarounds, but if, for example, Chrome decides to run an update right after Selenium starts the headless browser, things can go a bit sideways. The good news is that we're in the process of caching the relevant Equibase data, which should not only speed up the whole process, but also make it more reliable. 
+
+Q: Can I just use this to manage Facebook and not pay attention to the website?
+
+A: For the most part, yes - the website will still occasionally auto-update (marking a horse as placed, for example), and your changes are saved in case someone else wants to easily update the site, but you don't ever have to preview/publish a horse's page to the site. If we do change the DNS for the FLF domain to point to the site, I'd recommend keeping an eye on it, but it's not required in order to post/update Facebook.
