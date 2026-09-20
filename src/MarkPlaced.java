@@ -41,15 +41,23 @@ public class MarkPlaced {
         }
         out.write(indentStr + "<" + elem.tag().toString() + elem.attributes() + ">");
 
+        boolean wroteChildren = false;
         if (elem.childrenSize() > 0) {
-            out.write(elem.ownText());
+            if (!elem.ownText().isBlank()) {
+                // if links are embedded in a paragraph,
+                // this preserves the formatting
+                out.write(elem.html()); 
+                wroteChildren = true;
+            }
             out.newLine();
         } else {
             out.write(elem.html());
         }
         
-        for (Element child : elem.children()) {
-            prettyPrint(out, child, indent + 1);
+        if (!wroteChildren) {
+            for (Element child : elem.children()) {
+                prettyPrint(out, child, indent + 1);
+            }
         }
         // not everything has a close tag
         String closeTag = "</" + elem.tagName() + ">";

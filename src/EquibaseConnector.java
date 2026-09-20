@@ -1,4 +1,5 @@
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+
+import com.google.common.collect.Maps;
 
 public class EquibaseConnector {
 
@@ -78,7 +81,21 @@ public class EquibaseConnector {
     public static record HorseInfo(String equibaseUrl, String pedigreeUrl, 
             String shortSex, String shortColor, String year) {}
     
-    private static Map<String, String[]> equibaseCache = EquibaseScraper.loadHorseCache();
+    private static Map<String, String[]> equibaseCache = loadHorseCache();
+    
+    
+    public static Map<String, String[]> loadHorseCache() {
+        Map<String, String[]> cache = Maps.newHashMapWithExpectedSize(100_000);
+        try {
+            java.nio.file.Files.readAllLines(GithubConnector.getFile("resources/consolidated.csv").toPath()).forEach(line -> {
+                String[] data = line.split(",");
+                cache.put(data[0], data);
+            });
+        } catch (Exception e) {
+            return new HashMap<>();
+        }
+        return cache;
+    }
     
     public static synchronized HorseInfo loadHorsePage(String horse) {
         HorseInfo cached = cacheLookup(horse);

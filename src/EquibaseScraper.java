@@ -133,19 +133,6 @@ public class EquibaseScraper {
         }
     }
     
-    public static Map<String, String[]> loadHorseCache() {
-        Map<String, String[]> cache = Maps.newHashMapWithExpectedSize(100_000);
-        try {
-            java.nio.file.Files.readAllLines(Path.of("consolidated.csv")).forEach(line -> {
-                String[] data = line.split(",");
-                cache.put(data[0], data);
-            });
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return cache;
-    }
-    
     // https://www.equineline.com/Free-5X-Pedigree.cfm?page_state=ORDER_AND_CONFIRM&include_sire_line=N&include_truenick=N&reference_number=10998815
     private static void writeHorse(long horseNum, WebDriver driver, BufferedWriter out) throws IOException {
         String url = "https://www.equibase.com/profiles/Results.cfm?type=Horse&refno=" + horseNum + "&registry=T&rbt=TB";
@@ -187,7 +174,7 @@ public class EquibaseScraper {
 
     private static long getCurrentNum() {
        // return 10898812;
-        return 10917900;
+        return 10920400;
     }
 }
 

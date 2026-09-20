@@ -341,11 +341,13 @@ public class GithubConnector {
     public static void updateFromRemote() {
         // No auth, and called during initial setup, so don't use
         // the runner framework
-        try {
-            git.fetch().call();
-            git.pull().call();
-        } catch (GitAPIException e) {
-            throw new RuntimeException(e);
+        synchronized (git) {
+            try {
+                git.fetch().call();
+                git.pull().call();
+            } catch (GitAPIException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

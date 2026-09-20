@@ -1,6 +1,9 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -12,6 +15,18 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 public class AddHorseDetailed extends AddHorseShared {
+    
+    private static final List<String> boilerPlate;
+    static {
+        boilerPlate = new ArrayList<>();
+        try {
+            boilerPlate.addAll(Files.readAllLines(Path.of("bioAdditions.txt")));
+        } catch (IOException e) {
+            boilerPlate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
+                        + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
+        }
+    }
+    
     private HorseDetailsRecord horseData;
 
     public AddHorseDetailed() {
@@ -69,8 +84,9 @@ public class AddHorseDetailed extends AddHorseShared {
                 List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
                 bioPlusBoilerplate.add("Contact: " + horseData.getContact());
                 bioPlusBoilerplate.add("Price: " + horseData.getPrice());
-                bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
-                        + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
+                for (String additional : boilerPlate) {
+                    bioPlusBoilerplate.add(additional);
+                }
 
                 List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
                 String title = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
