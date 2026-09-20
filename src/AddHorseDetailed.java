@@ -3,7 +3,6 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,14 +15,21 @@ import javax.swing.JPanel;
 
 public class AddHorseDetailed extends AddHorseShared {
     
-    private static final List<String> boilerPlate;
+    private static final List<String> htmlPrefix = new ArrayList<>();
+    private static final List<String> htmlSuffix = new ArrayList<>();
+    private static final List<String> fbPrefix = new ArrayList<>();
+    private static final List<String> fbSuffix = new ArrayList<>();
     static {
-        boilerPlate = new ArrayList<>();
         try {
-            boilerPlate.addAll(Files.readAllLines(Path.of("bioAdditions.txt")));
+            htmlPrefix.addAll(Files.readAllLines(GithubConnector.getFile("resources/htmlPrefix.txt").toPath()).stream().filter(line -> !line.isBlank()).toList());
+            htmlSuffix.addAll(Files.readAllLines(GithubConnector.getFile("resources/htmlSuffix.txt").toPath()).stream().filter(line -> !line.isBlank()).toList());
+            fbPrefix.addAll(Files.readAllLines(GithubConnector.getFile("resources/fbPrefix.txt").toPath()).stream().filter(line -> !line.isBlank()).toList());
+            fbSuffix.addAll(Files.readAllLines(GithubConnector.getFile("resources/fbSuffix.txt").toPath()).stream().filter(line -> !line.isBlank()).toList());
         } catch (IOException e) {
-            boilerPlate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
-                        + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
+            htmlSuffix.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
+                    + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
+            fbSuffix.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
+                    + "important information about the buying process, please see the How to Buy page on our website.");
         }
     }
     
@@ -81,12 +87,12 @@ public class AddHorseDetailed extends AddHorseShared {
                 List<String> imageFiles = photosPanel.getImageFilenames();
                 Future<String> thumnail = photosPanel.prepThumbnail();
 
-                List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
+                List<String> bioPlusBoilerplate = new ArrayList<>();
+                bioPlusBoilerplate.addAll(htmlPrefix);
+                bioPlusBoilerplate.addAll(Arrays.asList(horseData.getBio().split("\n")));
                 bioPlusBoilerplate.add("Contact: " + horseData.getContact());
                 bioPlusBoilerplate.add("Price: " + horseData.getPrice());
-                for (String additional : boilerPlate) {
-                    bioPlusBoilerplate.add(additional);
-                }
+                bioPlusBoilerplate.addAll(htmlSuffix);
 
                 List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
                 String title = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
@@ -145,32 +151,33 @@ public class AddHorseDetailed extends AddHorseShared {
 
 
     private void createFbPost() {
-        String text = horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex();
-        text += "\n";
-        text += "\n";
+        StringBuilder text = new StringBuilder(horseData.getName().toUpperCase() + ", " + horseData.getYear() + ", " + horseData.getHeight() + " " + horseData.getColor() + " " + horseData.getSex());
+        text.append("\n");
+        text.append("\n");
         
-        text += horseData.getBio();
-        text += "\n";
-        text += "Contact: " + horseData.getContact();
-        text += "\n";
-        text += "Price: " + horseData.getPrice();
-        text += "\n";
+        fbPrefix.forEach(line -> text.append(line + "\n"));
         
-        text += "Race Record: " + horseData.getEquibase();
-        text += "\n";
-        text += "Pedigree: " + horseData.getPedigree();
-        text += "\n";
+        text.append(horseData.getBio());
+        text.append("\n");
+        text.append("Contact: " + horseData.getContact());
+        text.append("\n");
+        text.append("Price: " + horseData.getPrice());
+        text.append("\n");
+        
+        text.append("Race Record: " + horseData.getEquibase());
+        text.append("\n");
+        text.append("Pedigree: " + horseData.getPedigree());
+        text.append("\n");
         
         List<String> videoLinks = horseData.getVideos().getYoutubeLinks();
         for (String video : videoLinks) {
-            text += "Video: " + video + "\n";
+            text.append("Video: " + video + "\n");
         }
         
-        text += "A PPE is always recommended. For information about vet practices available to do PPEs, and other important "
-                + "information about the buying process, please see the How to Buy page on our website.";
+        fbSuffix.forEach(line -> text.append(line + "\n"));
         
         try {
-            FbConnector.createPagePost(text, photosPanel.getImageFilenames());
+            FbConnector.createPagePost(text.toString(), photosPanel.getImageFilenames());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }   
