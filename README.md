@@ -28,7 +28,9 @@ If someone needs this on a Mac, we can investigate other options, but the requir
 Hopefully self explanatory from the menu buttons. 
 
 Add a horse: Autofills data from Equibase and the FLF Youtube Channel, and allows previewing before publishing to the website and Facebook
+
 Edit a horse: Similar to 'add', allows previewing before publishing to the website and Facebook
+
 Mark as Placed: Automatically publishes to the site and updates the Facebook post, but there is an 'undo' option if you misclick
 
 # Adding a Horse: Automation
@@ -41,7 +43,9 @@ When adding a new horse, the app will automatically fill in:
 - Race record link (Equibase)
 - Pedigree link (Equibase)
 - Jog videos (FLF Youtube Channel)
-- A paragraph about getting a PPE, and link to How to Buy (app configuration file)
+- A paragraph about getting a PPE, and link to How to Buy (bioAdditions.txt)
+
+To update or change the text added to every bio, edit bioAdditions.txt - put the contents of one html paragraph per line
 
 
 # Whoops, I made a typo that I spotted in 'Preview'!
