@@ -31,6 +31,18 @@ Add a horse: Autofills data from Equibase and the FLF Youtube Channel, and allow
 Edit a horse: Similar to 'add', allows previewing before publishing to the website and Facebook
 Mark as Placed: Automatically publishes to the site and updates the Facebook post, but there is an 'undo' option if you misclick
 
+# Adding a Horse: Automation
+
+When adding a new horse, the app will automatically fill in:
+
+- Color (Equibase)
+- Birth Year (Equibase)
+- Mare/Gelding/etc (Equibase)
+- Race record link (Equibase)
+- Pedigree link (Equibase)
+- Jog videos (FLF Youtube Channel)
+- A paragraph about getting a PPE, and link to How to Buy (app configuration file)
+
 
 # Whoops, I made a typo that I spotted in 'Preview'!
 
