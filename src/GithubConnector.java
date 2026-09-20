@@ -47,8 +47,8 @@ public class GithubConnector {
     
     private static final String GITHUB_REPO = "kbrainard1/fingerlakesfinest";
     private static final String LOCAL_CHECKOUT_DIR = "repo";
-    private static final String EDIT_BRANCH = "test";
-    private static final String MAIN_BRANCH = "testmain";
+    private static final String EDIT_BRANCH = "staging";
+    private static final String MAIN_BRANCH = "main";
     private static final String TOKEN_KEY = "GH_TOKEN";
     private static final String KEY_EXPIRY = "GH_TOKEN_EXPIRATION";
     private static final String CLIENT_ID = "Iv23liOUVV6L6OCzqPwb"; // not secret

@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,10 +26,15 @@ import com.restfb.json.JsonValue;
 // any more than I have to, so feature expansion in this area feels unlikely
 public class FbConnector {
 
-    private static final String PAGE_ID = "1351602908027780"; // Dev page, need to find id for FLF
+    private static final String FLF_PAGE_ID = "148584211670209"; // Pretty sure about this   
+    
+    private static final String DEV_PAGE_ID = "1351602908027780"; // Dev page
+    
+    private static String pageIdToUse;
     private static final String GRAPH_API_BASE = "https://graph.facebook.com/v19.0";
     private static final String TOKEN_KEY = "FB_TOKEN";
     private static final String APP_SECRET_KEY = "FB_APP_SECRET";
+    private static final String TOKEN_EXPIRY_KEY = "FB_TOKEN_EXPIRATION";
     private static final String APP_ID = "1850725296366206"; // not secret
     private static final String APP_SECRET = AuthHandler.AUTH_HANDLER.getToken(APP_SECRET_KEY, "");
     private static String token = "";
@@ -45,7 +51,7 @@ public class FbConnector {
         }
     }
 
-    private static String  getPageAccessToken(String userAccessToken, String pageId) throws IOException, InterruptedException {
+    private static String  getPageAccessToken(String userAccessToken) throws IOException, InterruptedException {
         String url = GRAPH_API_BASE + "/me/accounts?fields=id,name,access_token&access_token=" + encode(userAccessToken);
 
         // Fetches page access tokens for all pages for postfiltering
@@ -54,11 +60,17 @@ public class FbConnector {
         if (jsonResponse.contains("error")) {
             throw new RuntimeException("Error fetching pages: " + jsonResponse.get("error").asObject().getString("message", ""));
         }
+        
 
         List<JsonValue> pages = jsonResponse.get("data").asArray().values();
         for (int i = 0; i < pages.size(); i++) {
             JsonObject page = pages.get(i).asObject();
-            if (page.getString("id", "").equals(PAGE_ID)) {
+            if (page.getString("id", "").equals(DEV_PAGE_ID)) {
+                pageIdToUse = DEV_PAGE_ID;
+                return page.getString("access_token", "");
+            }
+            if (page.getString("id", "").equals(FLF_PAGE_ID)) {
+                pageIdToUse = FLF_PAGE_ID;
                 return page.getString("access_token", "");
             }
         }
@@ -71,7 +83,7 @@ public class FbConnector {
 
     public static void createPagePost(String message, List<String> imagePaths)
             throws IOException, InterruptedException {
-        String pageAccessToken = getPageAccessToken(token, PAGE_ID);
+        String pageAccessToken = getPageAccessToken(token);
         List<String> photoIds = new ArrayList<>();
 
         // Upload each image as an unpublished media object
@@ -87,7 +99,7 @@ public class FbConnector {
     private static String uploadUnpublishedPhoto(String imagePath, String pageAccessToken)
             throws IOException, InterruptedException {
 
-        String url = GRAPH_API_BASE + "/" + PAGE_ID + "/photos";
+        String url = GRAPH_API_BASE + "/" + pageIdToUse + "/photos";
         
         // generate a unique token for the boundary string
         String boundary = "----JavaHttpClientBoundary" + System.currentTimeMillis();
@@ -141,7 +153,7 @@ public class FbConnector {
     private static void publishPostWithAttachedMedia( String message, List<String> photoIds, String pageAccessToken)
             throws IOException, InterruptedException {
 
-        String url = GRAPH_API_BASE + "/" + PAGE_ID + "/feed";
+        String url = GRAPH_API_BASE + "/" + pageIdToUse + "/feed";
 
         // Build the attached_media JSON payload: [{"media_fbid":"ID1"}, {"media_fbid":"ID2"}]
         JsonArray attachedMedia = new JsonArray();
@@ -180,8 +192,8 @@ public class FbConnector {
     public static record FbPost(String id, String contents) {}
 
     public static FbPost findPost(String horseName) throws IOException, InterruptedException {
-        String pageAccessToken = getPageAccessToken(token, PAGE_ID);
-        String url = GRAPH_API_BASE + "/" + PAGE_ID + "/feed?fields=id,message&limit=30&access_token=" + encode(pageAccessToken);
+        String pageAccessToken = getPageAccessToken(token);
+        String url = GRAPH_API_BASE + "/" + pageIdToUse + "/feed?fields=id,message&limit=30&access_token=" + encode(pageAccessToken);
         horseName = horseName.toLowerCase();
         
         // only look through the previous 30 posts - can add paging if needed 
@@ -211,7 +223,7 @@ public class FbConnector {
     }
 
     public static void updatePostText(String text, String postId) throws IOException, InterruptedException {
-        String pageAccessToken = getPageAccessToken(token, PAGE_ID);
+        String pageAccessToken = getPageAccessToken(token);
         String formBody = "message=" + encode(text) + "&access_token=" + encode(pageAccessToken);
         String url = GRAPH_API_BASE + "/" + postId;
         
@@ -229,17 +241,24 @@ public class FbConnector {
         }
         
     }
+    
+    public static interface LoginDisplay {
+        public void displayLogin(String loginUrl);
+    }
 
-    // TODO: figure out refresh/expiration flow
-    public static void doLogin() throws Exception {
+    public static void doLogin(LoginDisplay display) throws Exception {
         token = AuthHandler.AUTH_HANDLER.getToken(TOKEN_KEY, "");
-        if (token.isBlank()) {
+        long timeout = Long.parseLong(AuthHandler.AUTH_HANDLER.getToken(TOKEN_EXPIRY_KEY, "0"));
+        if (token.isBlank() || timeout < System.currentTimeMillis()) {
             String redirectUri = "http://localhost:8080/callback";
             String loginUrl = "https://www.facebook.com/v19.0/dialog/oauth" +
                     "?client_id=" + APP_ID +
                     "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8) +
                     "&scope=" + URLEncoder.encode("pages_show_list,pages_read_engagement,pages_manage_posts", StandardCharsets.UTF_8) +
                     "&response_type=code";
+            
+            display.displayLogin(loginUrl);
+            
             Desktop.getDesktop().browse(new URI(loginUrl));
 
             // wait for the code
@@ -252,9 +271,7 @@ public class FbConnector {
             String shortLivedToken = getShortLivedToken(authCode);
 
             // swap the short-lived token for a long-lived token (~2 months)
-            String longLivedToken = getLongLivedToken(shortLivedToken);
-            AuthHandler.AUTH_HANDLER.putToken(TOKEN_KEY, longLivedToken);
-            token = longLivedToken;
+            token = getLongLivedToken(shortLivedToken);
         }
     }
     
@@ -287,6 +304,10 @@ public class FbConnector {
         if (longLivedToken.isBlank()) {
             throw new RuntimeException("Failed to obtain long-lived token: " + jsonResponse);
         }
+        AuthHandler.AUTH_HANDLER.putToken(TOKEN_KEY, longLivedToken);
+        AuthHandler.AUTH_HANDLER.putToken(TOKEN_EXPIRY_KEY, 
+                "" + (System.currentTimeMillis() + Duration.ofDays(50).toMillis())); // actual is 60 days, give ourselves some wiggle room
+        
         return longLivedToken;
     }
 }

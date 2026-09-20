@@ -37,7 +37,7 @@ public class SimpleServer {
             // Display a quick confirmation page in the user's browser
             if (code != null) {
                 authCode = code;
-                String responseText = "<html><body><h2>Authentication complete! You may close this tab.</h2></body></html>";
+                String responseText = "<html><body><h2 style=\"text-align:center; color:rgb(0,128,0); margin-top:50px;\">Authentication complete! You may close this tab.</h2></body></html>";
                 exchange.sendResponseHeaders(200, responseText.length());
                 try (OutputStream os = exchange.getResponseBody()) {
                     os.write(responseText.getBytes());

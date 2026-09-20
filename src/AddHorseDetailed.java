@@ -67,8 +67,8 @@ public class AddHorseDetailed extends AddHorseShared {
                 Future<String> thumnail = photosPanel.prepThumbnail();
 
                 List<String> bioPlusBoilerplate = new ArrayList<>(Arrays.asList(horseData.getBio().split("\n")));
-                bioPlusBoilerplate.add(horseData.getContact());
-                bioPlusBoilerplate.add(horseData.getPrice());
+                bioPlusBoilerplate.add("Contact: " + horseData.getContact());
+                bioPlusBoilerplate.add("Price: " + horseData.getPrice());
                 bioPlusBoilerplate.add("A PPE is always recommended. For information about vet practices available to do PPEs, and other "
                         + "important information about the buying process, please see the <a href=\"../howtobuy.html\">How to Buy</a> page.");
 
@@ -135,9 +135,9 @@ public class AddHorseDetailed extends AddHorseShared {
         
         text += horseData.getBio();
         text += "\n";
-        text += horseData.getContact();
+        text += "Contact: " + horseData.getContact();
         text += "\n";
-        text += horseData.getPrice();
+        text += "Price: " + horseData.getPrice();
         text += "\n";
         
         text += "Race Record: " + horseData.getEquibase();
@@ -208,10 +208,13 @@ public class AddHorseDetailed extends AddHorseShared {
         if (color.equalsIgnoreCase("ch")) {
             return "chestnut";
         }
-        if (color.equalsIgnoreCase("DK B/BR") || color.equalsIgnoreCase("DK B")) {
+        if (color.equalsIgnoreCase("DK B/BR") 
+                || color.equalsIgnoreCase("DK B") 
+                || color.equalsIgnoreCase("br")) {
             return "dark bay";
         }
-        if (color.equalsIgnoreCase("b")) {
+        if (color.equalsIgnoreCase("b") 
+                || color.equalsIgnoreCase("b/br")) {
             return "bay";
         }
         if (color.equalsIgnoreCase("ro")) {

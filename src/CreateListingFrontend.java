@@ -27,6 +27,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.MatteBorder;
@@ -171,30 +172,33 @@ public class CreateListingFrontend {
                 swapInComponent(panel);
             });
             
-            JLabel fbMessage = new JLabel("Facebook authorization needed!");
-            fbMessage.setFont(DEFAULT_FONT.deriveFont(24f));
-            JPanel panel = new JPanel();
-            panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-            for (int i = 0; i < 10; i++) {
-                // squish the flow layouts
-                panel.add(wrapButton(new JLabel(" ")));
-            }
-            panel.add(wrapButton(fbMessage));
-            for (int i = 0; i < 10; i++) {
-                // squish the flow layouts
-                panel.add(wrapButton(new JLabel(" ")));
-            }
-            swapInComponent(panel);
+            FbConnector.LoginDisplay display = url -> {
+                JTextArea fbMessage1 = new JTextArea("Logging in to Facebook - follow the link in your browser, or go to\n"
+                        + url);
+                fbMessage1.setForeground(new Color(0, 0, 128));
+                fbMessage1.setFont(DEFAULT_FONT.deriveFont(18f));
+                fbMessage1.setColumns(120);
+                fbMessage1.setPreferredSize(new Dimension(500, 500));
+                fbMessage1.setLineWrap(true);
+                
+                JPanel panel = new JPanel();
+                panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+                for (int i = 0; i < 10; i++) {
+                    // squish the flow layouts
+                    panel.add(wrapButton(new JLabel(" ")));
+                }
+                panel.add(fbMessage1);
+                for (int i = 0; i < 10; i++) {
+                    // squish the flow layouts
+                    panel.add(wrapButton(new JLabel(" ")));
+                }
+                swapInComponent(panel);
+            };
             try {
-                FbConnector.doLogin();
+                FbConnector.doLogin(display);
             } catch (Exception e) {
                 // Continue without it, that's fine
-                fbMessage.setText("Facebook auth failed, continuing without it");
             }
-            
-           
-           
-           
             
             JPanel wrapped = createTopLevelMenu();
             mainLayer.add(wrapped, BorderLayout.NORTH);
