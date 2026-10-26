@@ -16,12 +16,12 @@ public class JSoupStateEdit extends AbstractUndoableEdit {
         }
     }
 
-    private final ExperimentalJSoupEditorPane editor;
+    private final WysiwygPanel editor;
     
     private StateSnapshot before;
     private StateSnapshot after;
 
-    public JSoupStateEdit(ExperimentalJSoupEditorPane editor, 
+    public JSoupStateEdit(WysiwygPanel editor, 
                           StateSnapshot before,
                           StateSnapshot after) {
         this.editor = editor;

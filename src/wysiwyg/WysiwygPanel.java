@@ -56,11 +56,11 @@ import wysiwyg.JSoupStateEdit.StateSnapshot;
 //
 // Sadly, the answer appears to be 'yes', but this version is pretty complete. A good chunk of the challenge has been fighting
 // with the JEditorPane, but the rendering and cursor management works pretty well and would be a PITA to reimplement.
-public class ExperimentalJSoupEditorPane extends JPanel {
+public class WysiwygPanel extends JPanel {
 
     private final JEditorPane editorPane;
 
-    private HtmlNavigator2 backingState;
+    private HtmlNavigator backingState;
     
     private AtomicBoolean selfTriggeredCaretChange = new AtomicBoolean(false);
     private AtomicBoolean selfTriggeredComboBox = new AtomicBoolean(false);
@@ -134,10 +134,10 @@ public class ExperimentalJSoupEditorPane extends JPanel {
         actionMap.put("Redo", redoAction);
     }
 
-    public ExperimentalJSoupEditorPane(String initialHtml, Dimension preferredSize){
+    public WysiwygPanel(String initialHtml, Dimension preferredSize){
         setLayout(new BorderLayout());
         
-        this.backingState = new HtmlNavigator2(initialHtml);
+        this.backingState = new HtmlNavigator(initialHtml);
 
         editorPane = new JEditorPane();
 
@@ -325,7 +325,7 @@ public class ExperimentalJSoupEditorPane extends JPanel {
         executeWithUndo(() -> {
             boolean alreadyInLink = backingState.inGivenTag("a");
 
-            wysiwyg.HtmlNavigator2.LinkData linkData = new wysiwyg.HtmlNavigator2.LinkData(editorPane.getSelectedText(), "https://");
+            wysiwyg.HtmlNavigator.LinkData linkData = new wysiwyg.HtmlNavigator.LinkData(editorPane.getSelectedText(), "https://");
             if (alreadyInLink) {
                 linkData = backingState.getLinkData();
             }

@@ -7,11 +7,17 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-// Handle escaped characters as single chars for navigation etc
-public class HtmlNavigator{
-    private String html;
+// Handles escaped chars
+public class HtmlNavigator {
+    private static record Tag(String plainTag, String details) {
+        public Tag(String simpleTag) {
+            this(simpleTag, "<" + simpleTag + ">");
+        }
+    }
+    
+    private StringLike html;
     private int offsetIntoHtml;
-    private List<String> currentTags = new ArrayList<>();
+    private List<Tag> currentTags = new ArrayList<>();
     
     public HtmlNavigator(String html) {
         html = html.replaceAll("<html>", "");
@@ -19,20 +25,20 @@ public class HtmlNavigator{
         html = html.replaceAll("<body>", "");
         html = html.replaceAll("</body>", "");
         offsetIntoHtml = 0;
-        this.html = html;
+        this.html = new StringLike(html);
     }
     
     public void setHtml(String html, int renderedPos) {
-        this.html = html;
+        this.html = new StringLike(html);
         this.currentTags.clear();
         navigateToRenderedPosition(renderedPos);
     }
     
-    private char currentChar() {
+    private CharLike currentChar() {
         return html.charAt(offsetIntoHtml);
     }
     
-    private char prevChar() {
+    private CharLike prevChar() {
         return html.charAt(offsetIntoHtml - 1);
     }
     
@@ -40,19 +46,12 @@ public class HtmlNavigator{
         int renderedSoFar = 0;
         currentTags.clear();
         for (offsetIntoHtml = 0; offsetIntoHtml < html.length() && renderedSoFar < renderPos; offsetIntoHtml++) {
-            if (currentChar() == '<') {
-                offsetIntoHtml++;
-                if (currentChar() =='/') {
-                    offsetIntoHtml++;
-                    String tag = readTag();
-                    if (!currentTags.get(currentTags.size() - 1).equals(tag)) {
-                        throw new IllegalStateException();
-                    }
+            if (currentChar().isTag()) {
+                String tag = currentChar().plainTag();
+                if (currentChar().details().charAt(1) =='/') {
                     currentTags.remove(currentTags.size() - 1);
                 } else {
-                    String tag = readTag();
-                    tag = tag.contains(" ") ? tag.substring(0, tag.indexOf(" ")) : tag;
-                    currentTags.add(tag);
+                    currentTags.add(new Tag(tag, currentChar().details()));
                     if (tag.equals("p") || tag.equals("li")) {// rendered newline
                         renderedSoFar++;
                     }
@@ -63,74 +62,55 @@ public class HtmlNavigator{
         }
         // try to avoid editing links
         if (inGivenTag("a")) {
-            if (html.indexOf("</a>", offsetIntoHtml) == offsetIntoHtml) {
+            if (html.charAt(offsetIntoHtml).details().equals("</a>")) {
                 currentTags.remove(currentTags.size() - 1);
-                offsetIntoHtml += 4;
+                offsetIntoHtml ++;
             }
         }
     }
-
-    private String readTag() {
-        String tag = "";
-        while (currentChar() != '>') {
-            tag += currentChar();
-            offsetIntoHtml++;
-        }
-        return tag;
-    }
-    
-    private String readReverseTag() {
-        String tag = "";
-        while (currentChar() != '<') {
-            tag = currentChar() + tag;
-            offsetIntoHtml--;
-        }
-        return tag;
-    }
     
     public boolean inGivenTag(String tag) {
-        return currentTags.contains(tag);
+        for (Tag t : currentTags) {
+            if (t.plainTag().equals(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     public void addCharacter(char ch) {
         addParaIfNeeded();
-        String escapeHtml = escapeHtml(""+ ch);
-        html = html.substring(0, offsetIntoHtml) + escapeHtml + html.substring(offsetIntoHtml);
-        offsetIntoHtml+=escapeHtml.length();
+        CharLike charToAdd = new CharLike(escapeHtml(""+ ch));
+        html.add(charToAdd, offsetIntoHtml);
+        offsetIntoHtml++;
     }
     
     private void addParaIfNeeded() {
         if (!inGivenTag("p") && !inGivenTag("li") && !inGivenTag("ul")) {
-            enterNew("p");
+            enterNew("p", false);
         }
     }
 
     public boolean removeChar() {
         while (offsetIntoHtml > 0) {
-            if (prevChar() == '>') {
-                offsetIntoHtml-=2;
-                String tag = readReverseTag();
-                if (tag.startsWith("/")) {
+            if (prevChar().isTag()) {
+                String tag = prevChar().plainTag();
+                if (prevChar().details().startsWith("</")) {
                     // read a close tag - we're moving backward, so we've now entered this element
-                    tag = tag.substring(1);
-                    currentTags.add(tag);
+                    currentTags.add(new Tag(tag, prevChar().details()));
                 } else {
                     // read an open tag - we've now left this element
-                    String plainTag = tag.contains(" ") ? tag.substring(0, tag.indexOf(" ")) : tag;
                     
                     // for paragraphs and list items, merge with the previous (remove the newline)
-                    if (plainTag.equals("p") || plainTag.equals("li")) {
-                        return mergeBreakingElements(tag);
+                    if (tag.equals("p") || tag.equals("li")) {
+                        return mergeBreakingElements(prevChar().details());
                     } else {
-                        tag = tag.contains(" ") ? tag.substring(0, tag.indexOf(" ")) : tag;
-                        if (!currentTags.get(currentTags.size() - 1).equals(tag)) {
-                            throw new IllegalStateException();
-                        }
                         currentTags.remove(currentTags.size() - 1);
                     }
                 }
+                offsetIntoHtml--;
             } else {
-                html = html.substring(0, offsetIntoHtml - 1) + html.substring(offsetIntoHtml);
+                html.remove(offsetIntoHtml - 1);
                 offsetIntoHtml--;
                 return true;
             }
@@ -141,57 +121,61 @@ public class HtmlNavigator{
     private boolean mergeBreakingElements(String tag) {
         // open tags can have attributes, so just use the tag prefix
         
-        //</p><p, </li></ul><p, </p><ul><li, </li><li
-        String substr = html.substring(Math.max(0, offsetIntoHtml - 12), offsetIntoHtml + tag.length() + 1);
+        //</p><p>, </li></ul><p>, </p><ul><li>, </li><li>
+        String substr = html.substring(Math.max(0, offsetIntoHtml - 3), offsetIntoHtml).getString();
         
-        // OIH is currently the '<' in the last open tag
-        if (substr.endsWith("</p><p") || substr.endsWith("</li><li")) {
+        if (substr.endsWith("</p><p>") || substr.endsWith("</li><li>")) {
             // no change in context, just merge
+            // ie, remove the close and open tags
+            html.remove(offsetIntoHtml - 1);
+            html.remove(offsetIntoHtml - 2);
+            offsetIntoHtml -= 2; 
             
-            int closeLen = tag.length() + 3; // "</tag>"
-            int openLen = tag.length() + 2; // "<tag>"
-            html = html.substring(0, offsetIntoHtml - closeLen) + html.substring(offsetIntoHtml + openLen);
-            offsetIntoHtml -= closeLen;
             return true; // removed the newline
-        } else if (substr.endsWith("</li></ul><p")) {
-            // find the matching close tag
-            int closeTag = html.indexOf("</p>", offsetIntoHtml);
-            
-            html = html.substring(0, offsetIntoHtml - "</li></ul>".length()) 
-                    + html.substring(offsetIntoHtml + tag.length() + 2, closeTag)
-                    + "</li></ul>"
-                    + html.substring(closeTag + "</p>".length());
-            offsetIntoHtml -= "</li></ul>".length();
+        } else if (substr.endsWith("</li></ul><p>")) {
+            shiftCloseTags("p", "</li></ul>");
             
             // update context
             currentTags.remove(currentTags.size() - 1);
-            currentTags.add("ul");
-            currentTags.add("li");
-            return true; // removed the newline
-        } else if (substr.endsWith("</p><ul><li")) { // NB attributes on the ul would cause issues
-            int closeTag = html.indexOf("</li>", offsetIntoHtml);
-            html = html.substring(0, offsetIntoHtml - "</p><ul>".length()) 
-                    + html.substring(offsetIntoHtml + tag.length() + 2, closeTag)
-                    + "</p><ul>"
-                    + html.substring(closeTag + "</li>".length());
-            offsetIntoHtml -= "</p><ul>".length();
+            currentTags.add(new Tag("ul"));
+            currentTags.add(new Tag("li"));
             
+            return true; // removed the newline
+        } else if (substr.endsWith("</p><ul><li>")) { // NB attributes on the ul would cause issues
+            shiftCloseTags("li", "</p><ul>");
+                        
             // extra uls mess up the rendering state
-            int emptyListIndex = html.indexOf("<ul></ul>", offsetIntoHtml);
-            if (emptyListIndex > 0) {
-                html = html.substring(0, emptyListIndex) + html.substring(emptyListIndex + "<ul></ul>".length());
+            int emptyListIndex = findCloseTag("ul");
+            if (html.charAt(emptyListIndex - 1).details().equals("<ul>")) {
+                html.remove(emptyListIndex);
+                html.remove(emptyListIndex - 1);
             }
             
             // update context
             currentTags.remove(currentTags.size() - 1); // li
             currentTags.remove(currentTags.size() - 1); // ul
-            currentTags.add("p");
+            currentTags.add(new Tag("p"));
             
             return true; // removed the newline
         } else { // most likely, we're at the beginning of the document
             currentTags.remove(currentTags.size() - 1);
             return false;
         }
+    }
+
+    private void shiftCloseTags(String tagToClose, String tagsToShift) {
+        // find the matching close tag
+        int closeTag = findCloseTag(tagToClose);
+        
+        html.remove(closeTag);
+        html.remove(offsetIntoHtml - 1);
+        html.remove(offsetIntoHtml - 2);
+        html.remove(offsetIntoHtml - 3);
+       
+        
+        html.addAll(new StringLike(tagsToShift), closeTag - 3);
+        
+        offsetIntoHtml -= 3;
     }
     
     private String escapeHtml(String input) {
@@ -200,14 +184,14 @@ public class HtmlNavigator{
                     .replace(">", "&gt;");
     }
 
-    public boolean enterNew(String tag) {
+    public boolean enterNew(String tag, boolean allowNesting) {
         String plainTag = tag.contains(" ") ? tag.substring(0, tag.indexOf(" ")) : tag;
-        if (inGivenTag(plainTag)) {
+        if (inGivenTag(plainTag) && !allowNesting) {
             return false;
         }
-        html = html.substring(0, offsetIntoHtml) + "<" + tag + "></" + plainTag + ">" + html.substring(offsetIntoHtml);
-        offsetIntoHtml += (tag.length() + 2);
-        currentTags.add(plainTag);
+        html.addAll(new StringLike("<" + tag + "></" + plainTag + ">"), offsetIntoHtml);
+        offsetIntoHtml++;
+        currentTags.add(new Tag(plainTag, "<" + tag + ">"));
         return true;
     }
 
@@ -218,15 +202,16 @@ public class HtmlNavigator{
         }
         
         // case 1: the exit tag is right there (common for entering text)
-        if (html.substring(offsetIntoHtml, offsetIntoHtml + plainTag.length() + 3).equals("</" + plainTag + ">")) {
-            offsetIntoHtml += plainTag.length() + 3;
+        if (currentChar().details().equals("</" + plainTag + ">")) {
+            offsetIntoHtml ++;
             currentTags.remove(currentTags.size() - 1);
         } else {
             // case 2: we need to split the text
-            String close = closeAllContextTagsUpTo(plainTag);
-            String open = openAllContextTagsUpTo(plainTag); // NB this does clear nested attributes
+            StringLike close = closeAllContextTagsUpTo(plainTag);
+            StringLike open = openAllContextTagsUpTo(plainTag); // NB this does clear nested attributes
             
-            html = html.substring(0, offsetIntoHtml) + close + open + html.substring(offsetIntoHtml);
+            html.addAll(open, offsetIntoHtml);
+            html.addAll(close, offsetIntoHtml);
             offsetIntoHtml += close.length();
             while (inGivenTag(plainTag)) {
                 currentTags.remove(currentTags.size() - 1);
@@ -234,22 +219,22 @@ public class HtmlNavigator{
         }
     }
 
-    private String openAllContextTagsUpTo(String plainTag) {
-        String result = "";
+    private StringLike openAllContextTagsUpTo(String plainTag) {
+        StringLike result = new StringLike("");
         for (int i = currentTags.size() - 1; i >=0; i--) {
-            result = "<" + currentTags.get(i) + ">" + result;
-            if (currentTags.get(i).equals(plainTag)) {
+            result.add(new CharLike(currentTags.get(i).details(), true, currentTags.get(i).plainTag()), 0);
+            if (currentTags.get(i).plainTag().equals(plainTag)) {
                 break;
             }
         }
         return result;
     }
 
-    private String closeAllContextTagsUpTo(String plainTag) {
-        String result = "";
+    private StringLike closeAllContextTagsUpTo(String plainTag) {
+        StringLike result = new StringLike("");
         for (int i = currentTags.size() - 1; i >=0; i--) {
-            result += "</" + currentTags.get(i) + ">";
-            if (currentTags.get(i).equals(plainTag)) {
+            result.add(new CharLike("</" + currentTags.get(i).plainTag() + ">", true, currentTags.get(i).plainTag()), result.length());
+            if (currentTags.get(i).plainTag().equals(plainTag)) {
                 break;
             }
         }
@@ -258,27 +243,33 @@ public class HtmlNavigator{
 
     public void split() {
         if (inGivenTag("p")) {
-            // split paragraph, context remains the same
-            String close = closeAllContextTagsUpTo("p");
-            String open = openAllContextTagsUpTo("p");
-            html = html.substring(0, offsetIntoHtml) + close + open + html.substring(offsetIntoHtml);
-            offsetIntoHtml += close.length();
-            offsetIntoHtml += open.length();
+            handleSplit("p");
         } else if (inGivenTag("li")) {
-            String exitList = "<li></li></ul>"; // enter at end of list should exit list
-            if (html.substring(Math.max(0, offsetIntoHtml - 4), 
-                    Math.min(html.length(), offsetIntoHtml + 10)).equals(exitList)) {
-                html = html.substring(0, offsetIntoHtml - 4) + "</ul><p></p>" + html.substring(offsetIntoHtml + 10);
-                offsetIntoHtml += 4;
-                currentTags.remove(currentTags.size() - 1); // li
-                currentTags.remove(currentTags.size() - 1); // ul
-                currentTags.add("p");
+            int endIndex = findCloseTag("li");
+            int startIndex = findOpenTag("li");
+            boolean anyCharsInList = false;
+            for (int i = startIndex + 1; i < endIndex; i++) {
+                if (!html.charAt(i).isTag()) {
+                    anyCharsInList = true;
+                    break;
+                }
+            }
+            // enter at end of list should exit list (<li></li></ul>)
+            if (!anyCharsInList &&
+                    html.charAt(endIndex + 1).details().equals("</ul>")) {
+                for (int i = 0; i < (endIndex - startIndex + 1); i++) {
+                    html.remove(startIndex);
+                }
+                offsetIntoHtml = startIndex + 1; // skip the /ul
+                html.addAll(new StringLike("<p></p>"), offsetIntoHtml);
+                offsetIntoHtml++; // move into paragraph
+                
+                while (inGivenTag("ul")) {
+                    currentTags.remove(currentTags.size() - 1);
+                }
+                currentTags.add(new Tag("p"));
             } else {
-                String close = closeAllContextTagsUpTo("li");
-                String open = openAllContextTagsUpTo("li");
-                html = html.substring(0, offsetIntoHtml) + close + open + html.substring(offsetIntoHtml);
-                offsetIntoHtml += close.length();
-                offsetIntoHtml += open.length();
+                handleSplit("li");
             }
             
         } else { // weird case
@@ -287,12 +278,24 @@ public class HtmlNavigator{
         
     }
 
+    private void handleSplit(String tag) {
+        // split paragraph, context remains the same
+        StringLike close = closeAllContextTagsUpTo(tag);
+        StringLike open = openAllContextTagsUpTo(tag);
+        
+        html.addAll(open, offsetIntoHtml);
+        html.addAll(close, offsetIntoHtml);
+        
+        offsetIntoHtml += close.length();
+        offsetIntoHtml += open.length();
+    }
+
     public String getHtml() {
-        return html;
+        return html.getString();
     }
     
     public String getCleanHtml() {
-        String result = html;
+        String result = html.getString();
         result = result.replaceAll("<a [^<>]*></a>", "");
         for (String tag : new String[] {"b", "u", "i", "p"}) {
             result = result.replaceAll("<" + tag + "></" + tag + ">", "");
@@ -301,37 +304,43 @@ public class HtmlNavigator{
     }
 
     public String cutText(int selectionStart, int selectionEnd) {
-        HtmlNavigator start = new HtmlNavigator(html);
+        HtmlNavigator start = new HtmlNavigator(html.getString());
         start.navigateToRenderedPosition(selectionStart);
-        String prefix = start.openAllContextTagsUpTo("");
+        StringLike prefix = start.openAllContextTagsUpTo("");
         
-        HtmlNavigator end = new HtmlNavigator(html);
+        HtmlNavigator end = new HtmlNavigator(html.getString());
         end.navigateToRenderedPosition(selectionEnd);
-        String suffix = end.closeAllContextTagsUpTo("");
+        StringLike suffix = end.closeAllContextTagsUpTo("");
         
-        String middle = html.substring(start.offsetIntoHtml, end.offsetIntoHtml);
+        StringLike middle = html.substring(start.offsetIntoHtml, end.offsetIntoHtml);
         offsetIntoHtml = end.offsetIntoHtml;
         
        for (int i = 0; i < (selectionEnd - selectionStart); i++) {
             removeChar();
         }
         
-        return prefix + middle + suffix;
+       prefix.addAll(middle, prefix.length());
+       prefix.addAll(suffix, prefix.length());
+       
+       return prefix.getString();
     }
 
     public String copyText(int selectionStart, int selectionEnd) {
-        HtmlNavigator start = new HtmlNavigator(html);
+        HtmlNavigator start = new HtmlNavigator(html.getString());
         start.navigateToRenderedPosition(selectionStart);
-        String prefix = start.openAllContextTagsUpTo("");
+        StringLike prefix = start.openAllContextTagsUpTo("");
         
-        HtmlNavigator end = new HtmlNavigator(html);
+        HtmlNavigator end = new HtmlNavigator(html.getString());
         end.navigateToRenderedPosition(selectionEnd);
-        String suffix = end.openAllContextTagsUpTo("");
+        StringLike suffix = end.openAllContextTagsUpTo("");
         
-        String middle = html.substring(start.offsetIntoHtml, end.offsetIntoHtml);
+        StringLike middle = html.substring(start.offsetIntoHtml, end.offsetIntoHtml);
         offsetIntoHtml = end.offsetIntoHtml;
         
-        return prefix + middle + suffix;
+        prefix.addAll(middle, prefix.length());
+        prefix.addAll(suffix, prefix.length());
+        
+        return prefix.getString();
     }
 
     public void paste(String textToAddBack) {
@@ -351,70 +360,60 @@ public class HtmlNavigator{
         //
         // <p><b>valdata</b> value<b>ue</b></p>  
         
+        StringLike parsedAddBack = new StringLike(textToAddBack);
         List<String> openTagsMerged = new ArrayList<>();
-        textToAddBack = mergeOpenTags(textToAddBack, openTagsMerged);
+        mergeOpenTags(parsedAddBack, openTagsMerged);
         
         // check for matching close tags, and either remove them or add an open tag
-        textToAddBack = mergeCloseTags(textToAddBack, openTagsMerged);
+        mergeCloseTags(parsedAddBack, openTagsMerged);
         
-        html = html.substring(0, offsetIntoHtml) + textToAddBack + html.substring(offsetIntoHtml);
-        offsetIntoHtml += textToAddBack.length();
+        
+        html.addAll(parsedAddBack, offsetIntoHtml);
+        offsetIntoHtml += parsedAddBack.length();
     }
 
-    private String mergeOpenTags(String textToAddBack, List<String> openTagsMerged) {
+    private void mergeOpenTags(StringLike textToAddBack, List<String> openTagsMerged) {
         for (int i = 0; i < textToAddBack.length(); i++) {
-            if (textToAddBack.charAt(i) != '<') {
+            if (!textToAddBack.charAt(i).isTag()) {
                 break;
             }
-            String tag = "";
-            int startPos = i;
-            i++;
-            while (textToAddBack.charAt(i) != '>') {
-                tag += textToAddBack.charAt(i);
-                i++;
-            }
-            if (tag.startsWith("/")) {
+            if (textToAddBack.charAt(i).details().contains("/")) {
                 break; // this was a close tag, we actually read all the prefix tags (weird)
             }
+            String tag = textToAddBack.charAt(i).plainTag();
+            
             if (inGivenTag(tag)) {
                 openTagsMerged.add(tag);
-                textToAddBack = textToAddBack.substring(0, startPos) + textToAddBack.substring(i + 1);
-                i = startPos - 1;
-            }
-        }
-        return textToAddBack;
-    }
-
-    private String mergeCloseTags(String textToAddBack, List<String> mergedOpenTags) {
-        for (int i = textToAddBack.length() - 1; i >= 0; i--) {
-            if (textToAddBack.charAt(i) != '>') {
-                break;
-            }
-            String tag = "";
-            int endPos = i;
-            i--;
-            while (textToAddBack.charAt(i) != '<') {
-                tag = textToAddBack.charAt(i) + tag;
+                textToAddBack.remove(i);
                 i--;
             }
-            if (!tag.startsWith("/")) {
+        }
+    }
+
+    private void mergeCloseTags(StringLike textToAddBack, List<String> mergedOpenTags) {
+        for (int i = textToAddBack.length() - 1; i >= 0; i--) {
+            if (!textToAddBack.charAt(i).isTag()) {
+                break;
+            }
+            if (!textToAddBack.charAt(i).details().contains("/")) {
                 break; // this was an open tag, we actually read all the suffix tags (weird)
             }
-            tag = tag.substring(1);
-            
+            String tag = textToAddBack.charAt(i).plainTag();
+                        
             if (mergedOpenTags.contains(tag)) {
                 mergedOpenTags.remove(tag);
-                textToAddBack = textToAddBack.substring(0, i) + textToAddBack.substring(endPos + 1);
+                textToAddBack.remove(i);
             }
         }
         // if an open tag doesn't have a matching close, that means that
         // (a) in the copied text, the tag did not still apply at the end of the snippet (ie, it was closed during the snippet)
         // (b) the tag should apply after the end of this snippet, because we are currently in that tag
         // Solution: re-open the tag
+        String mergeBack = "";
         for (String unmatchedOpen : mergedOpenTags) {
-            textToAddBack += "<" + unmatchedOpen + ">";
+            mergeBack += "<" + unmatchedOpen + ">";
         }
-        return textToAddBack;
+        textToAddBack.addAll(new StringLike(mergeBack), textToAddBack.length());
     }
 
     private String changeTags(String html, String toReplace, String replaceWith) {
@@ -434,27 +433,52 @@ public class HtmlNavigator{
         if (!inGivenTag("a")) {
             return null;
         }
-        int start = html.lastIndexOf("<a ", offsetIntoHtml);
-        int end = html.indexOf("</a>", offsetIntoHtml);
-        Document document = Jsoup.parse(html.substring(start, end + 4));
+        int start = findOpenTag("a");
+        int end = findCloseTag("a");
+        Document document = Jsoup.parse(html.substring(start, end + 1).getString());
         Element linkElem = document.getElementsByTag("a").get(0);
         return new LinkData(linkElem.text(), linkElem.attr("href"));
+    }
+
+    private int findCloseTag(String plainTag) {
+        String closeTagString = "</" + plainTag + ">";
+        for (int i = offsetIntoHtml; i < html.length(); i++) {
+            if (html.charAt(i).isTag() && html.charAt(i).details().startsWith(closeTagString)) {
+               return i;
+            }
+        }
+        return -1;
+    }
+
+    private int findOpenTag(String tag) {
+        for (int i = offsetIntoHtml; i >=0; i--) {
+            if (html.charAt(i).isTag() && 
+                    html.charAt(i).plainTag().equals(tag) &&
+                    html.charAt(i).details().startsWith("<" + tag)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public void addLink(String linkText, String url) {
         addParaIfNeeded();
         if (inGivenTag("a")) {
-            int start = html.lastIndexOf("<a ", offsetIntoHtml);
-            int end = html.indexOf("</a>", offsetIntoHtml);
-            Document document = Jsoup.parse(html.substring(start, end + 4));
+            int start = findOpenTag("a");
+            int end = findCloseTag("a");
+            Document document = Jsoup.parse(html.substring(start, end + 1).getString());
             Element linkElem = document.getElementsByTag("a").get(0);
             linkElem.attr("href", url);
             linkElem.text(linkText);
-            html = html.substring(0, start) + linkElem.outerHtml() + html.substring(end + 4);
-            offsetIntoHtml = html.indexOf("</a>" + 4, start);
+            for (int i = 0; i <= (end - start); i++) {
+                html.remove(start); // shifts over
+            }
+            html.addAll(new StringLike(linkElem.outerHtml()), start);
+            offsetIntoHtml = start;
+            offsetIntoHtml = findCloseTag("a") + 1;
         } else {
-            String linkToAdd = "<a href=\"" + url + "\">" + linkText + "</a>";
-            html = html.substring(0, offsetIntoHtml) + linkToAdd + html.substring(offsetIntoHtml);
+            StringLike linkToAdd = new StringLike("<a href=\"" + url + "\">" + linkText + "</a>");
+            html.addAll(linkToAdd, offsetIntoHtml);
             offsetIntoHtml += linkToAdd.length(); 
         }
     }
@@ -462,15 +486,10 @@ public class HtmlNavigator{
     public int findRenderedPos() {
         int renderedSoFar = 0;
         for (int i = 0; i < offsetIntoHtml; i++) {
-            if (html.charAt(i) == '<') {
-                i++;
-                String tag = "";
-                while (html.charAt(i) != '>') {
-                    tag += html.charAt(i);
-                    i++;
-                }
-                tag = tag.contains(" ") ? tag.substring(0, tag.indexOf(" ")) : tag;
-                if (tag.equals("p") || tag.equals("li")) {// rendered newline
+            if (html.charAt(i).isTag()) {
+                String tag = html.charAt(i).plainTag();
+                if (!html.charAt(i).details().contains("/") &&
+                        (tag.equals("p") || tag.equals("li"))) {// rendered newline
                     renderedSoFar++;
                 }
             } else {
@@ -478,5 +497,22 @@ public class HtmlNavigator{
             }
         }
         return renderedSoFar;
+    }
+
+    public String getSpanClass() {
+        if (!inGivenTag("span")) {
+            return "";
+        }
+        for (int i = offsetIntoHtml; i >= 0; i--) {
+            if (html.charAt(i).isTag() && 
+                    html.charAt(i).plainTag().equals("span")
+                    && !html.charAt(i).details().contains("/")) {
+                String fullTag =  html.charAt(i).details();
+                int start = fullTag.indexOf("=") + 2;
+                int end = fullTag.indexOf("\"", start);
+                return fullTag.substring(start, end);
+            }
+        }
+        return "";
     }
 }

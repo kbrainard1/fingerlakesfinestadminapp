@@ -16,7 +16,7 @@ import org.jsoup.nodes.Document;
 import com.google.common.collect.Lists;
 
 import adminapp.GithubConnector.CommitType;
-import wysiwyg.ExperimentalJSoupEditorPane;
+import wysiwyg.WysiwygPanel;
 
 public class EditSiteComponent extends JPanel {
     
@@ -39,7 +39,7 @@ public class EditSiteComponent extends JPanel {
     private WebPage currentPage = null;
     private JPanel wysiwyg;
     private List<JButton> pageButtons;
-    private ExperimentalJSoupEditorPane htmlContents;
+    private WysiwygPanel htmlContents;
     private StatusLabel status;
 
     public EditSiteComponent() {
@@ -118,7 +118,7 @@ public class EditSiteComponent extends JPanel {
         pageButtons.forEach(button -> button.setEnabled(true));
         String html = loadHtml(page);
        
-        htmlContents = new ExperimentalJSoupEditorPane(html, new Dimension(CreateListingFrontend.OVERALL_WIDTH, 700));
+        htmlContents = new WysiwygPanel(html, new Dimension(CreateListingFrontend.OVERALL_WIDTH, 700));
         wysiwyg.remove(0);
         wysiwyg.add(htmlContents);
         wysiwyg.revalidate();

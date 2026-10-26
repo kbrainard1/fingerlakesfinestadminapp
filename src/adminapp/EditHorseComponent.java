@@ -26,14 +26,14 @@ import org.jsoup.select.Elements;
 
 import com.google.common.collect.Lists;
 
-import wysiwyg.ExperimentalJSoupEditorPane;
+import wysiwyg.WysiwygPanel;
 
 public class EditHorseComponent extends JPanel {
     
     private JPanel horses;
     
     private JTextField title;
-    private ExperimentalJSoupEditorPane bio;
+    private WysiwygPanel bio;
     private VideoPanel videos;
     private PhotosPanel photos;
     private Document htmlDoc;
@@ -334,7 +334,7 @@ public class EditHorseComponent extends JPanel {
         JLabel bioLabel = new JLabel("Horse Bio: ");
         bioLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
         String html = htmlDoc.getElementsByClass("horse_bio").html();
-        bio = new ExperimentalJSoupEditorPane(html, new Dimension(CreateListingFrontend.OVERALL_WIDTH - 100, 200));
+        bio = new WysiwygPanel(html, new Dimension(CreateListingFrontend.OVERALL_WIDTH - 100, 200));
         
         JScrollPane bioScroll = new JScrollPane(bio, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
