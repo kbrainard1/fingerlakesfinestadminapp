@@ -333,6 +333,7 @@ public class EditHorseComponent extends JPanel {
     private void addBio(JPanel center) {
         JLabel bioLabel = new JLabel("Horse Bio: ");
         bioLabel.setFont(CreateListingFrontend.DEFAULT_FONT);
+        htmlDoc.outputSettings(htmlDoc.outputSettings().maxPaddingWidth(0));
         String html = htmlDoc.getElementsByClass("horse_bio").html();
         bio = new WysiwygPanel(html, new Dimension(CreateListingFrontend.OVERALL_WIDTH - 100, 200));
         

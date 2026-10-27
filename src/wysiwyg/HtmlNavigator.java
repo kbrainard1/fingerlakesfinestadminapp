@@ -2,10 +2,13 @@ package wysiwyg;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+
+import com.google.common.collect.Sets;
 
 // Handles escaped chars
 public class HtmlNavigator {
@@ -18,6 +21,8 @@ public class HtmlNavigator {
     private StringLike html;
     private int offsetIntoHtml;
     private List<Tag> currentTags = new ArrayList<>();
+    
+    private final Set<String> renderedNewLine = Sets.newHashSet("p", "li", "h1", "h2", "h3", "h4", "h5", "h6");
     
     public HtmlNavigator(String html) {
         html = html.replaceAll("<html>", "");
@@ -52,7 +57,7 @@ public class HtmlNavigator {
                     currentTags.remove(currentTags.size() - 1);
                 } else {
                     currentTags.add(new Tag(tag, currentChar().details()));
-                    if (tag.equals("p") || tag.equals("li")) {// rendered newline
+                    if (renderedNewLine.contains(tag)) {// rendered newline
                         renderedSoFar++;
                     }
                 }

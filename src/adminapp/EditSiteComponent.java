@@ -128,6 +128,7 @@ public class EditSiteComponent extends JPanel {
     private String loadHtml(WebPage page) {
         try {
             Document htmlFile = GithubConnector.getHtmlFile(page.page);
+            htmlFile.outputSettings(htmlFile.outputSettings().maxPaddingWidth(0));
             if (page == WebPage.INDEX) {
                 return htmlFile.getElementsByClass("home_content").html();
             } else {

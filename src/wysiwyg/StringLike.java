@@ -7,6 +7,9 @@ public class StringLike {
 
     public StringLike(String html) {
         for (int i = 0; i < html.length(); i++) {
+            if (html.charAt(i) == '\n' || html.charAt(i) == '\r') {
+                continue; // where are these even coming from
+            }
             if (html.charAt(i) == '&') {
                 String details = "";
                 char escaped = html.charAt(i + 1);
