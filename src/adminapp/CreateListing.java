@@ -78,7 +78,7 @@ public class CreateListing {
         Document page = GithubConnector.getHtmlFile("horsePages/availTemplate.html");
         page.getElementsByTag("head").get(0).append("<title>" + nameCase(name) + " | Finger Lakes Finest Thoroughbreds, Inc</title>");
         
-        Element firstMainChild = page.getElementById("horse_bio");
+        Element firstMainChild = page.select(".horse_bio").get(0);
         firstMainChild.before("    <img class=\"listing_thumb\" src=\"" + shortName + "_files/" + PhotosPanel.THUMBNAIL_NAME + "\">");
         firstMainChild.before("    <h1>" + title + "</h1>");
 
