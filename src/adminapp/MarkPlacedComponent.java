@@ -18,35 +18,38 @@ public class MarkPlacedComponent extends JPanel {
         buttonListener = (href, title, details) -> {
 
             CreateListingFrontend.runWithSpinner(success, () -> {
-                MarkPlaced.markPlaced(href, details);
-                boolean updatedFb = updateFbPost(title, details);
-                GithubConnector.mergeStaging();
-                if (updatedFb) {
-                    success.setSuccess("");
-                } else {
-                    success.setError("Facebook post failed to update");
-                }
-                for (int i = 0; i < placedHeader.getComponentCount(); i++) {
-                    if (placedHeader.getComponent(i) instanceof UndoLabel) {
-                        placedHeader.remove(i);
-                        break;
+                if (MarkPlaced.markPlaced(href, details)) {
+                    boolean updatedFb = updateFbPost(title, details);
+                    GithubConnector.mergeStaging();
+                    if (updatedFb) {
+                        success.setSuccess("");
+                    } else {
+                        success.setError("Facebook post failed to update");
                     }
-                }
-                placedHeader.add(new UndoLabel(title, () -> {
                     for (int i = 0; i < placedHeader.getComponentCount(); i++) {
                         if (placedHeader.getComponent(i) instanceof UndoLabel) {
                             placedHeader.remove(i);
                             break;
                         }
                     }
-                    success.reset();
+                    placedHeader.add(new UndoLabel(title, () -> {
+                        for (int i = 0; i < placedHeader.getComponentCount(); i++) {
+                            if (placedHeader.getComponent(i) instanceof UndoLabel) {
+                                placedHeader.remove(i);
+                                break;
+                            }
+                        }
+                        success.reset();
+                        horseListings.loadHorses(buttonListener);
+                        revalidate();
+                        repaint();
+                    }));
                     horseListings.loadHorses(buttonListener);
                     revalidate();
                     repaint();
-                }));
-                horseListings.loadHorses(buttonListener);
-                revalidate();
-                repaint();
+                } else {
+                    success.setError("Horse already marked as placed");
+                }
             });
 
         };

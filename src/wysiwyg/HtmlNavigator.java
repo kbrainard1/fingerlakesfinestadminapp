@@ -91,9 +91,12 @@ public class HtmlNavigator {
     }
     
     private void addParaIfNeeded() {
-        if (!inGivenTag("p") && !inGivenTag("li") && !inGivenTag("ul")) {
-            enterNew("p", false);
+        for (String tag : renderedNewLine) {
+            if (inGivenTag(tag)) {
+                return;
+            }
         }
+        enterNew("p", false);
     }
 
     public boolean removeChar() {

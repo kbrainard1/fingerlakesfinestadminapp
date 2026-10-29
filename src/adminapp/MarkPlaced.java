@@ -71,17 +71,22 @@ public class MarkPlaced {
         out.newLine();
     }
 
-    public static void markPlaced(String hrefForHorsePage, String optionalDetails) throws IOException {
+    public static boolean markPlaced(String hrefForHorsePage, String optionalDetails) throws IOException {
         // remove from available.html
         StringBuilder snippetToMove = removeFromAvailable(hrefForHorsePage);
         if (snippetToMove == null) {
-            return;
+            snippetToMove = removeFromInactive(hrefForHorsePage);
+            if (snippetToMove == null) {
+                return false;
+            }
         }
+        
+        String snippetString = snippetToMove.toString();
 
         // add to placed.html
         updatePage("placed.html", page -> {
             Element main = page.getElementsByTag("main").get(0);
-            main.children().get(1).after(snippetToMove.toString()); // h1 & year nav
+            main.children().get(1).after(snippetString); // h1 & year nav
         });
 
         // add optional notes or "PLACED" to top of horse page
@@ -91,6 +96,32 @@ public class MarkPlaced {
             title.after("<p>" + notes + "</p>");
         });
         GithubConnector.commitAndPush(GithubConnector.CommitType.MARK_PLACED);
+        return true;
+    }
+    
+    public static StringBuilder removeFromInactive(String hrefForHorsePage) throws IOException {
+        StringBuilder snippetToMove = new StringBuilder();
+        AtomicBoolean removed = new AtomicBoolean(false);
+        updatePage("inactive.html", page -> {
+            Elements snippets = page.select(".available_snippet_div");
+            for (Element snippet : snippets) {
+                String horsePage = snippet.select(".available_title").get(0).attr("href");
+                if (horsePage.equalsIgnoreCase(hrefForHorsePage)) {
+                    snippetToMove.append(snippet.outerHtml());
+                    snippet.remove();
+                    removed.set(true);
+                    break;
+                }
+            }
+        });
+        
+        if (!removed.get()) {
+            // horse already marked as placed (semantic merge conflict)
+            // reload (which is triggered after this) should fix the stale UI
+            return null;
+        }
+
+        return snippetToMove;
     }
 
     public static StringBuilder removeFromAvailable(String hrefForHorsePage) throws IOException {
